@@ -7,6 +7,7 @@ import com.aditya.expensetracker.expense_tracker.dto.PagedResponse;
 import com.aditya.expensetracker.expense_tracker.entity.Expense;
 import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.exception.ResourceNotFoundException;
+import com.aditya.expensetracker.expense_tracker.mapper.ExpenseMapper;
 import com.aditya.expensetracker.expense_tracker.repository.ExpenseRepository;
 import com.aditya.expensetracker.expense_tracker.specification.ExpenseSpecification;
 
@@ -24,42 +25,24 @@ import java.time.LocalDateTime;
 public class ExpenseServiceImpl implements ExpenseService {
 
     private final ExpenseRepository expenseRepository;
-
     private final CurrentUserService currentUserService;
+    private final ExpenseMapper expenseMapper;
 
     @Override
     public ExpenseResponse createExpense(CreateExpenseRequest request) {
 
         User currentUser = currentUserService.getCurrentUser();
 
-        Expense expense = Expense.builder()
-                .title(request.getTitle())
-                .amount(request.getAmount())
-                .category(request.getCategory())
-                .description(request.getDescription())
-                .expenseDate(request.getExpenseDate())
-                .createdAt(LocalDateTime.now())
-                .user(currentUser)
-                .build();
+        Expense expense = expenseMapper.toEntity(request);
+
+        expense.setCreatedAt(LocalDateTime.now());
+        expense.setUser(currentUser);
 
         Expense savedExpense = expenseRepository.save(expense);
 
-        return mapToResponse(savedExpense);
+        return expenseMapper.toResponse(savedExpense);
     }
 
-    private ExpenseResponse mapToResponse(Expense expense) {
-
-        return ExpenseResponse.builder()
-                .id(expense.getId())
-                .title(expense.getTitle())
-                .amount(expense.getAmount())
-                .category(expense.getCategory())
-                .description(expense.getDescription())
-                .expenseDate(expense.getExpenseDate())
-                .receiptUrl(expense.getReceiptUrl())
-                .build();
-    }
-    
     @Override
     public PagedResponse<ExpenseResponse> getMyExpenses(
             ExpenseFilterRequest filter,
@@ -107,9 +90,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                 expenseRepository.findAll(specification, pageable);
 
         return PagedResponse.<ExpenseResponse>builder()
-                .items(expenses.getContent().stream()
-                        .map(this::mapToResponse)
-                        .toList())
+                .items(expenseMapper.toResponseList(expenses.getContent()))
                 .page(expenses.getNumber())
                 .size(expenses.getSize())
                 .totalElements(expenses.getTotalElements())
@@ -129,7 +110,7 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
 
-        return mapToResponse(expense);
+        return expenseMapper.toResponse(expense);
     }
 
     @Override
@@ -144,15 +125,11 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
 
-        expense.setTitle(request.getTitle());
-        expense.setAmount(request.getAmount());
-        expense.setCategory(request.getCategory());
-        expense.setDescription(request.getDescription());
-        expense.setExpenseDate(request.getExpenseDate());
+        expenseMapper.updateExpenseFromRequest(request, expense);
 
         Expense updatedExpense = expenseRepository.save(expense);
 
-        return mapToResponse(updatedExpense);
+        return expenseMapper.toResponse(updatedExpense);
     }
 
     @Override
