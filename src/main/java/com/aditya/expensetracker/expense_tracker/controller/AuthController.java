@@ -2,10 +2,14 @@ package com.aditya.expensetracker.expense_tracker.controller;
 
 import com.aditya.expensetracker.expense_tracker.dto.AuthResponse;
 import com.aditya.expensetracker.expense_tracker.dto.LoginRequest;
+import com.aditya.expensetracker.expense_tracker.dto.RefreshTokenRequest;
 import com.aditya.expensetracker.expense_tracker.dto.RegisterRequest;
 import com.aditya.expensetracker.expense_tracker.service.AuthService;
+
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -27,5 +31,22 @@ public class AuthController {
 
     public AuthResponse login(@RequestBody LoginRequest request) {
         return authService.login(request);
+    }
+    
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest request) {
+
+        return ResponseEntity.ok(
+                authService.refresh(request));
+    }
+    
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(
+            @Valid @RequestBody RefreshTokenRequest request) {
+
+        authService.logout(request);
+
+        return ResponseEntity.noContent().build();
     }
 }

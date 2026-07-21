@@ -7,9 +7,12 @@ import org.springframework.stereotype.Service;
 
 import com.aditya.expensetracker.expense_tracker.dto.AuthResponse;
 import com.aditya.expensetracker.expense_tracker.dto.LoginRequest;
+import com.aditya.expensetracker.expense_tracker.dto.RefreshTokenRequest;
 import com.aditya.expensetracker.expense_tracker.dto.RegisterRequest;
+import com.aditya.expensetracker.expense_tracker.entity.RefreshToken;
 import com.aditya.expensetracker.expense_tracker.entity.Role;
 import com.aditya.expensetracker.expense_tracker.entity.User;
+import com.aditya.expensetracker.expense_tracker.exception.InvalidCredentialsException;
 import com.aditya.expensetracker.expense_tracker.mapper.UserMapper;
 import com.aditya.expensetracker.expense_tracker.repository.UserRepository;
 
@@ -26,6 +29,8 @@ public class AuthService {
     private final JwtService jwtService;
 
     private final UserMapper userMapper;
+    
+    private final RefreshTokenService refreshTokenService;
 
     public void register(RegisterRequest request) {
 
@@ -41,20 +46,55 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
 
         boolean matches = passwordEncoder.matches(
                 request.getPassword(),
                 user.getPassword());
 
         if (!matches) {
-            throw new RuntimeException("Invalid credentials");
+        	throw new InvalidCredentialsException("Invalid email or password");
         }
 
-        String token = jwtService.generateToken(user.getEmail());
+        String accessToken = jwtService.generateToken(user);
+
+        RefreshToken refreshToken =
+                refreshTokenService.createRefreshToken(user);
 
         return AuthResponse.builder()
-                .token(token)
+                .accessToken(accessToken)
+                .refreshToken(refreshToken.getToken())
                 .build();
+    }
+    
+    public AuthResponse refresh(RefreshTokenRequest request) {
+
+    	RefreshToken oldToken =
+    	        refreshTokenService.validateRefreshToken(
+    	                request.getRefreshToken());
+
+    	User user = oldToken.getUser();
+
+    	refreshTokenService.revokeRefreshToken(oldToken);
+
+    	RefreshToken newRefreshToken =
+    	        refreshTokenService.createRefreshToken(user);
+
+    	String accessToken =
+    	        jwtService.generateToken(user);
+
+    	return AuthResponse.builder()
+    	        .accessToken(accessToken)
+    	        .refreshToken(newRefreshToken.getToken())
+    	        .build();
+    }
+    
+    public void logout(RefreshTokenRequest request) {
+
+        RefreshToken refreshToken =
+                refreshTokenService.validateRefreshToken(
+                        request.getRefreshToken());
+
+        refreshTokenService.revokeRefreshToken(refreshToken);
     }
 }

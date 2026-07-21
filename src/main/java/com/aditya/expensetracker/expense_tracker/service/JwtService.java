@@ -7,6 +7,8 @@ import io.jsonwebtoken.security.Keys;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import com.aditya.expensetracker.expense_tracker.entity.User;
+
 import java.security.Key;
 import java.util.Date;
 
@@ -15,13 +17,16 @@ public class JwtService {
 
     @Value("${JWT_SECRET}")
     private String secret;
+    
+    @Value("${app.jwt.expiration-ms}")
+    private long jwtExpirationMs;
 
-    public String generateToken(String email) {
+    public String generateToken(User user) {
 
         return Jwts.builder()
-                .setSubject(email)
+                .setSubject(user.getEmail())
                 .setIssuedAt(new Date())
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24))
+                .setExpiration(new Date(System.currentTimeMillis() + jwtExpirationMs))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
     }
@@ -45,10 +50,11 @@ public class JwtService {
         return Keys.hmacShaKeyFor(secret.getBytes());
     }
     
-    public boolean isTokenValid(String token, String email) {
+    public boolean isTokenValid(String token, User user) {
 
-        String extractedEmail = extractEmail(token);
+        Claims claims = extractAllClaims(token);
 
-        return extractedEmail.equals(email);
+        return claims.getSubject().equals(user.getEmail())
+                && claims.getExpiration().after(new Date());
     }
 }
