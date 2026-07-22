@@ -83,4 +83,31 @@ public class GlobalExceptionHandler {
                 HttpStatus.UNAUTHORIZED,
                 ex.getMessage());
     }
+    
+    @ExceptionHandler(InvalidVerificationTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationTokenException(
+            InvalidVerificationTokenException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage());
+    }
+    
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmailException(
+            DuplicateEmailException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage());
+    }
+    
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPasswordResetTokenException(
+    		InvalidPasswordResetTokenException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage());
+    }
 }

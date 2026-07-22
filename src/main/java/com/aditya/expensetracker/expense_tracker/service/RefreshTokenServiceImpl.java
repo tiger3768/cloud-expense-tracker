@@ -1,6 +1,7 @@
 package com.aditya.expensetracker.expense_tracker.service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -60,9 +61,19 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     @Override
     public void revokeRefreshToken(RefreshToken refreshToken) {
 
-    	if (!refreshToken.isRevoked()) {
-    	    refreshToken.setRevoked(true);
-    	    refreshTokenRepository.save(refreshToken);
-    	}
+        refreshToken.setRevoked(true);
+
+        refreshTokenRepository.save(refreshToken);
+    }
+    
+    @Override
+    public void revokeAllRefreshTokens(User user) {
+
+        List<RefreshToken> refreshTokens =
+                refreshTokenRepository.findByUser(user);
+
+        refreshTokens.forEach(token -> token.setRevoked(true));
+
+        refreshTokenRepository.saveAll(refreshTokens);
     }
 }

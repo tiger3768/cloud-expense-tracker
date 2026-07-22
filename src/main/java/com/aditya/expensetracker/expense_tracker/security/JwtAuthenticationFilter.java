@@ -1,5 +1,6 @@
 package com.aditya.expensetracker.expense_tracker.security;
 
+import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.service.CustomUserDetailsService;
 import com.aditya.expensetracker.expense_tracker.service.JwtService;
 import jakarta.servlet.FilterChain;
@@ -59,7 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                             .loadUserByUsername(userEmail);
 
             if (jwtService.isTokenValid(jwt,
-                    userDetails.getUsername())) {
+                    (User)userDetails)) {
 
                 UsernamePasswordAuthenticationToken authToken =
                         new UsernamePasswordAuthenticationToken(

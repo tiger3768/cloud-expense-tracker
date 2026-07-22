@@ -14,6 +14,7 @@ public interface UserMapper {
     @Mapping(target = "role", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "expenses", ignore = true)
+    @Mapping(target = "enabled", ignore = true)
     User toEntity(RegisterRequest request);
 
 }
