@@ -45,6 +45,9 @@ public class AuthService {
     
     private final PasswordResetTokenRepository passwordResetTokenRepository;
 
+    private final EmailService emailService;
+
+    @Transactional
     public void register(RegisterRequest request) {
 
         User user = userMapper.toEntity(request);
@@ -63,9 +66,9 @@ public class AuthService {
         EmailVerificationToken verificationToken =
                 emailVerificationTokenService.createVerificationToken(user);
 
-        System.out.println(
-                "Verification Link: http://localhost:8080/api/auth/verify?token="
-                        + verificationToken.getToken());
+        emailService.sendVerificationEmail(
+                user,
+                verificationToken.getToken());
     }
     
     public void verifyEmail(String token) {
@@ -135,6 +138,7 @@ public class AuthService {
     	        .build();
     }
     
+    @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
 
         userRepository.findByEmail(request.getEmail())
@@ -149,10 +153,9 @@ public class AuthService {
                             passwordResetTokenService
                                     .createPasswordResetToken(user);
 
-                    System.out.println(
-                            "Reset Password Link: "
-                            + "http://localhost:8080/api/auth/reset-password?token="
-                            + resetToken.getToken());
+                    emailService.sendPasswordResetEmail(
+                            user,
+                            resetToken.getToken());
                 });
     }
     
