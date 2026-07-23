@@ -6,10 +6,38 @@ on:
       - "feature/**"
 
 jobs:
-  build:
+ build:
     name: Build and Test
 
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: expense_tracker
+          POSTGRES_USER: admin
+          POSTGRES_PASSWORD: admin123
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U admin -d expense_tracker"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DB_URL: ${{ secrets.DB_URL }}
+      DB_USERNAME: ${{ secrets.DB_USERNAME }}
+      DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+      JWT_SECRET: ${{ secrets.JWT_SECRET }}
+
+      ACCESS_TOKEN_EMS: ${{ secrets.ACCESS_TOKEN_EMS }}
+      REFRESH_TOKEN_EDATE: ${{ secrets.REFRESH_TOKEN_EDATE }}
+      VERIFICATION_TOKEN_EHR: ${{ secrets.VERIFICATION_TOKEN_EHR }}
+      PASSWORD_RESET_TOKEN_EHR: ${{ secrets.PASSWORD_RESET_TOKEN_EHR }}
+
+      SPRING_PROFILES_ACTIVE: ${{ secrets.SPRING_PROFILES_ACTIVE }}
 
     steps:
       - name: Checkout Repository
@@ -19,8 +47,8 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: "21"
           cache: maven
 
-      - name: Build and Run Tests
-        run: mvn clean verify
+      - name: Build and Test
+        run: mvn -B clean verify
