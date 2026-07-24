@@ -5,6 +5,12 @@ import com.aditya.expensetracker.expense_tracker.dto.ExpenseFilterRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseResponse;
 import com.aditya.expensetracker.expense_tracker.dto.PagedResponse;
 import com.aditya.expensetracker.expense_tracker.service.ExpenseService;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -15,10 +21,18 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/expenses")
 @RequiredArgsConstructor
-public class ExpenseController {
+@Tag(name = "Expenses", description = "Expense management APIs")
+@SecurityRequirement(name = "Bearer Authentication")
+public class ExpenseController{
 
     private final ExpenseService expenseService;
-
+    
+    @Operation(summary = "Create expense")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Expense created"),
+        @ApiResponse(responseCode = "400", description = "Validation failed"),
+        @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ExpenseResponse createExpense(
@@ -27,6 +41,7 @@ public class ExpenseController {
         return expenseService.createExpense(request);
     }
     
+    @Operation(summary = "Get all expenses")
     @GetMapping
     public PagedResponse<ExpenseResponse> getMyExpenses(
             @ModelAttribute ExpenseFilterRequest filter,
@@ -35,6 +50,7 @@ public class ExpenseController {
         return expenseService.getMyExpenses(filter, pageable);
     }
     
+    @Operation(summary = "Get expense by ID")
     @GetMapping("/{id}")
     public ExpenseResponse getExpense(
             @PathVariable Long id) {
@@ -42,6 +58,7 @@ public class ExpenseController {
         return expenseService.getExpense(id);
     }
     
+    @Operation(summary = "Update expense")
     @PutMapping("/{id}")
     public ExpenseResponse updateExpense(
             @PathVariable Long id,
@@ -50,6 +67,7 @@ public class ExpenseController {
         return expenseService.updateExpense(id, request);
     }
     
+    @Operation(summary = "Delete expense")
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteExpense(@PathVariable Long id) {

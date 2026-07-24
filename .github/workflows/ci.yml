@@ -38,6 +38,11 @@ jobs:
       PASSWORD_RESET_TOKEN_EHR: ${{ secrets.PASSWORD_RESET_TOKEN_EHR }}
 
       SPRING_PROFILES_ACTIVE: ${{ secrets.SPRING_PROFILES_ACTIVE }}
+      
+      MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}    
+      MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+
+      APP_CONTACT_EMAIL: ${{ secrets.APP_CONTACT_EMAIL }}
 
     steps:
       - name: Checkout Repository

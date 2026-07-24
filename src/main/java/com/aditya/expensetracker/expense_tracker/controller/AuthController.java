@@ -8,6 +8,10 @@ import com.aditya.expensetracker.expense_tracker.dto.RegisterRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ResetPasswordRequest;
 import com.aditya.expensetracker.expense_tracker.service.AuthService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -16,19 +20,30 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/auth")
+@Tag(name = "Authentication", description = "Authentication APIs")
 @RequiredArgsConstructor
 
 public class AuthController {
 
     private final AuthService authService;
 
-    @PostMapping("/register")
+    
     @ResponseStatus(HttpStatus.CREATED)
-
+    @Operation(summary = "Register a new user")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "User registered successfully"),
+        @ApiResponse(responseCode = "400", description = "Validation failed")
+    })
+    @PostMapping("/register")
     public void register(@RequestBody RegisterRequest request) {
         authService.register(request);
     }
     
+    @Operation(summary = "Verify email")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Email verified"),
+        @ApiResponse(responseCode = "400", description = "Invalid verification token")
+    })
     @GetMapping("/verify")
     public ResponseEntity<Void> verifyEmail(
             @RequestParam String token) {
@@ -38,12 +53,17 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
     
+    @Operation(summary = "Login")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Login successful"),
+        @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
     @PostMapping("/login")
-
     public AuthResponse login(@RequestBody LoginRequest request) {
         return authService.login(request);
     }
     
+    @Operation(summary = "Refresh access token")
     @PostMapping("/refresh")
     public ResponseEntity<AuthResponse> refresh(
             @Valid @RequestBody RefreshTokenRequest request) {
@@ -52,6 +72,7 @@ public class AuthController {
                 authService.refresh(request));
     }
     
+    @Operation(summary = "Send password reset email")
     @PostMapping("/forgot-password")
     public ResponseEntity<Void> forgotPassword(
             @Valid @RequestBody ForgotPasswordRequest request) {
@@ -61,6 +82,7 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
     
+    @Operation(summary = "Reset password")
     @PostMapping("/reset-password")
     public ResponseEntity<Void> resetPassword(
             @Valid @RequestBody ResetPasswordRequest request) {
@@ -70,6 +92,7 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
     
+    @Operation(summary = "Logout")
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
             @Valid @RequestBody RefreshTokenRequest request) {
