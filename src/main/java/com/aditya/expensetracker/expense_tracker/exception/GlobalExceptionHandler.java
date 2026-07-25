@@ -2,7 +2,6 @@ package com.aditya.expensetracker.expense_tracker.exception;
 
 import com.aditya.expensetracker.expense_tracker.dto.ErrorResponse;
 import com.aditya.expensetracker.expense_tracker.dto.ValidationErrorResponse;
-
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -16,15 +15,15 @@ import java.util.Map;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-	@ExceptionHandler(ResourceNotFoundException.class)
-	public ResponseEntity<ErrorResponse> handleResourceNotFound(
-	        ResourceNotFoundException ex) {
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> handleResourceNotFound(
+            ResourceNotFoundException ex) {
 
-	    return buildErrorResponse(
-	            HttpStatus.NOT_FOUND,
-	            ex.getMessage());
-	}
-    
+        return buildErrorResponse(
+                HttpStatus.NOT_FOUND,
+                ex.getMessage());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ValidationErrorResponse> handleValidationException(
             MethodArgumentNotValidException ex) {
@@ -36,8 +35,7 @@ public class GlobalExceptionHandler {
                 .forEach(error ->
                         errors.put(
                                 error.getField(),
-                                error.getDefaultMessage()
-                        ));
+                                error.getDefaultMessage()));
 
         ValidationErrorResponse response =
                 ValidationErrorResponse.builder()
@@ -50,7 +48,70 @@ public class GlobalExceptionHandler {
                 .badRequest()
                 .body(response);
     }
-    
+
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidCredentials(
+            InvalidCredentialsException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.UNAUTHORIZED,
+                ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
+            InvalidRefreshTokenException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.UNAUTHORIZED,
+                ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidVerificationTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidVerificationToken(
+            InvalidVerificationTokenException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage());
+    }
+
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(
+            DuplicateEmailException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage());
+    }
+
+    @ExceptionHandler(InvalidPasswordResetTokenException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidPasswordResetToken(
+            InvalidPasswordResetTokenException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                ex.getMessage());
+    }
+
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<ErrorResponse> handleEmailDelivery(
+            EmailDeliveryException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ex.getMessage());
+    }
+
+    @ExceptionHandler(StorageException.class)
+    public ResponseEntity<ErrorResponse> handleStorageException(
+            StorageException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.INTERNAL_SERVER_ERROR,
+                ex.getMessage());
+    }
+
     private ResponseEntity<ErrorResponse> buildErrorResponse(
             HttpStatus status,
             String message) {
@@ -61,62 +122,6 @@ public class GlobalExceptionHandler {
                 .error(message)
                 .build();
 
-        return ResponseEntity
-                .status(status)
-                .body(response);
-    }
-    
-    @ExceptionHandler(InvalidCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidCredentials(
-            InvalidCredentialsException ex) {
-
-        return buildErrorResponse(
-                HttpStatus.UNAUTHORIZED,
-                ex.getMessage());
-    }
-    
-    @ExceptionHandler(InvalidRefreshTokenException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidRefreshToken(
-            InvalidRefreshTokenException ex) {
-
-        return buildErrorResponse(
-                HttpStatus.UNAUTHORIZED,
-                ex.getMessage());
-    }
-    
-    @ExceptionHandler(InvalidVerificationTokenException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidVerificationTokenException(
-            InvalidVerificationTokenException ex) {
-
-        return buildErrorResponse(
-                HttpStatus.BAD_REQUEST,
-                ex.getMessage());
-    }
-    
-    @ExceptionHandler(DuplicateEmailException.class)
-    public ResponseEntity<ErrorResponse> handleDuplicateEmailException(
-            DuplicateEmailException ex) {
-
-        return buildErrorResponse(
-                HttpStatus.CONFLICT,
-                ex.getMessage());
-    }
-    
-    @ExceptionHandler(InvalidPasswordResetTokenException.class)
-    public ResponseEntity<ErrorResponse> handleInvalidPasswordResetTokenException(
-    		InvalidPasswordResetTokenException ex) {
-
-        return buildErrorResponse(
-                HttpStatus.CONFLICT,
-                ex.getMessage());
-    }
-    
-    @ExceptionHandler(EmailDeliveryException.class)
-    public ResponseEntity<ErrorResponse> handleEmailDeliveryException(
-            EmailDeliveryException ex) {
-
-        return buildErrorResponse(
-                HttpStatus.INTERNAL_SERVER_ERROR,
-                ex.getMessage());
+        return ResponseEntity.status(status).body(response);
     }
 }

@@ -10,15 +10,16 @@ import com.aditya.expensetracker.expense_tracker.exception.ResourceNotFoundExcep
 import com.aditya.expensetracker.expense_tracker.mapper.ExpenseMapper;
 import com.aditya.expensetracker.expense_tracker.repository.ExpenseRepository;
 import com.aditya.expensetracker.expense_tracker.specification.ExpenseSpecification;
-
 import lombok.RequiredArgsConstructor;
-
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -27,9 +28,13 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final ExpenseRepository expenseRepository;
     private final CurrentUserService currentUserService;
     private final ExpenseMapper expenseMapper;
+    private final FileStorageService fileStorageService;
 
+    @Transactional
     @Override
-    public ExpenseResponse createExpense(CreateExpenseRequest request) {
+    public ExpenseResponse createExpense(
+            CreateExpenseRequest request,
+            MultipartFile receipt) {
 
         User currentUser = currentUserService.getCurrentUser();
 
@@ -38,11 +43,23 @@ public class ExpenseServiceImpl implements ExpenseService {
         expense.setCreatedAt(LocalDateTime.now());
         expense.setUser(currentUser);
 
+        if (receipt != null && !receipt.isEmpty()) {
+            String receiptKey = fileStorageService.uploadFile(receipt);
+            expense.setReceiptKey(receiptKey);
+        }
+
         Expense savedExpense = expenseRepository.save(expense);
 
-        return expenseMapper.toResponse(savedExpense);
-    }
+        ExpenseResponse response = expenseMapper.toResponse(savedExpense);
 
+        if (savedExpense.getReceiptKey() != null) {
+            response.setReceiptUrl(
+                    fileStorageService.generatePresignedUrl(
+                            savedExpense.getReceiptKey()));
+        }
+
+        return response;
+    }
     @Override
     public PagedResponse<ExpenseResponse> getMyExpenses(
             ExpenseFilterRequest filter,
@@ -53,44 +70,51 @@ public class ExpenseServiceImpl implements ExpenseService {
         Specification<Expense> specification = Specification.unrestricted();
 
         specification = specification.and(
-                ExpenseSpecification.belongsToUser(currentUser)
-        );
+                ExpenseSpecification.belongsToUser(currentUser));
 
         if (filter.getCategory() != null) {
             specification = specification.and(
-                    ExpenseSpecification.hasCategory(filter.getCategory())
-            );
+                    ExpenseSpecification.hasCategory(filter.getCategory()));
         }
 
         if (filter.getMinAmount() != null) {
             specification = specification.and(
-                    ExpenseSpecification.minAmount(filter.getMinAmount())
-            );
+                    ExpenseSpecification.minAmount(filter.getMinAmount()));
         }
 
         if (filter.getMaxAmount() != null) {
             specification = specification.and(
-                    ExpenseSpecification.maxAmount(filter.getMaxAmount())
-            );
+                    ExpenseSpecification.maxAmount(filter.getMaxAmount()));
         }
 
         if (filter.getStartDate() != null) {
             specification = specification.and(
-                    ExpenseSpecification.startDate(filter.getStartDate())
-            );
+                    ExpenseSpecification.startDate(filter.getStartDate()));
         }
 
         if (filter.getEndDate() != null) {
             specification = specification.and(
-                    ExpenseSpecification.endDate(filter.getEndDate())
-            );
+                    ExpenseSpecification.endDate(filter.getEndDate()));
         }
 
         Page<Expense> expenses =
                 expenseRepository.findAll(specification, pageable);
 
+        List<Expense> expenseEntities = expenses.getContent();
+        List<ExpenseResponse> responses =
+                expenseMapper.toResponseList(expenseEntities);
+
+        for (int i = 0; i < expenseEntities.size(); i++) {
+            String receiptKey = expenseEntities.get(i).getReceiptKey();
+
+            if (receiptKey != null) {
+                responses.get(i).setReceiptUrl(
+                        fileStorageService.generatePresignedUrl(receiptKey));
+            }
+        }
+
         return PagedResponse.<ExpenseResponse>builder()
-                .items(expenseMapper.toResponseList(expenses.getContent()))
+                .items(responses)
                 .page(expenses.getNumber())
                 .size(expenses.getSize())
                 .totalElements(expenses.getTotalElements())
@@ -110,13 +134,23 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
 
-        return expenseMapper.toResponse(expense);
+        ExpenseResponse response = expenseMapper.toResponse(expense);
+
+        if (expense.getReceiptKey() != null) {
+            response.setReceiptUrl(
+                    fileStorageService.generatePresignedUrl(
+                            expense.getReceiptKey()));
+        }
+
+        return response;
     }
 
+    @Transactional
     @Override
     public ExpenseResponse updateExpense(
             Long id,
-            CreateExpenseRequest request) {
+            CreateExpenseRequest request,
+            MultipartFile receipt) {
 
         User currentUser = currentUserService.getCurrentUser();
 
@@ -127,11 +161,31 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         expenseMapper.updateExpenseFromRequest(request, expense);
 
+        if (receipt != null && !receipt.isEmpty()) {
+
+            if (expense.getReceiptKey() != null) {
+                fileStorageService.deleteFile(expense.getReceiptKey());
+            }
+
+            String receiptKey = fileStorageService.uploadFile(receipt);
+
+            expense.setReceiptKey(receiptKey);
+        }
+
         Expense updatedExpense = expenseRepository.save(expense);
 
-        return expenseMapper.toResponse(updatedExpense);
+        ExpenseResponse response = expenseMapper.toResponse(updatedExpense);
+
+        if (updatedExpense.getReceiptKey() != null) {
+            response.setReceiptUrl(
+                    fileStorageService.generatePresignedUrl(
+                            updatedExpense.getReceiptKey()));
+        }
+
+        return response;
     }
 
+    @Transactional
     @Override
     public void deleteExpense(Long id) {
 
@@ -141,6 +195,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .findByIdAndUser(id, currentUser)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
+
+        if (expense.getReceiptKey() != null) {
+            fileStorageService.deleteFile(expense.getReceiptKey());
+        }
 
         expenseRepository.delete(expense);
     }

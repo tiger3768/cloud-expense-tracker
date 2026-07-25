@@ -41,7 +41,7 @@ public class Expense {
     @NotNull(message = "Expense date is required")
     private LocalDate expenseDate;
 
-    private String receiptUrl;
+    private String receiptKey;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)

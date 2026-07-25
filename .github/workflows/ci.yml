@@ -43,6 +43,9 @@ jobs:
       MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
 
       APP_CONTACT_EMAIL: ${{ secrets.APP_CONTACT_EMAIL }}
+     
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_BUCKET_NAME: $ {{ secrets.AWS_BUCKET_NAME }}
 
     steps:
       - name: Checkout Repository
