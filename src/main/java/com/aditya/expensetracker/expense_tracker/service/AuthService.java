@@ -17,6 +17,9 @@ import com.aditya.expensetracker.expense_tracker.entity.PasswordResetToken;
 import com.aditya.expensetracker.expense_tracker.entity.RefreshToken;
 import com.aditya.expensetracker.expense_tracker.entity.Role;
 import com.aditya.expensetracker.expense_tracker.entity.User;
+import com.aditya.expensetracker.expense_tracker.event.DomainEventPublisher;
+import com.aditya.expensetracker.expense_tracker.event.ForgotPasswordRequestedEvent;
+import com.aditya.expensetracker.expense_tracker.event.UserRegisteredEvent;
 import com.aditya.expensetracker.expense_tracker.exception.DuplicateEmailException;
 import com.aditya.expensetracker.expense_tracker.exception.InvalidCredentialsException;
 import com.aditya.expensetracker.expense_tracker.mapper.UserMapper;
@@ -44,8 +47,8 @@ public class AuthService {
     private final PasswordResetTokenService passwordResetTokenService;
     
     private final PasswordResetTokenRepository passwordResetTokenRepository;
-
-    private final EmailService emailService;
+    
+    private final DomainEventPublisher eventPublisher;
 
     @Transactional
     public void register(RegisterRequest request) {
@@ -63,12 +66,8 @@ public class AuthService {
 
         userRepository.save(user);
 
-        EmailVerificationToken verificationToken =
-                emailVerificationTokenService.createVerificationToken(user);
-
-        emailService.sendVerificationEmail(
-                user,
-                verificationToken.getToken());
+        eventPublisher.publish(
+                new UserRegisteredEvent(user.getId()));
     }
     
     public void verifyEmail(String token) {
@@ -149,13 +148,9 @@ public class AuthService {
                             .ifPresent(
                                     passwordResetTokenService::deletePasswordResetToken);
 
-                    PasswordResetToken resetToken =
-                            passwordResetTokenService
-                                    .createPasswordResetToken(user);
-
-                    emailService.sendPasswordResetEmail(
-                            user,
-                            resetToken.getToken());
+                    eventPublisher.publish(
+                            new ForgotPasswordRequestedEvent(
+                                    user.getId()));
                 });
     }
     
