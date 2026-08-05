@@ -1,6 +1,8 @@
 package com.aditya.expensetracker.expense_tracker.dto;
 
 import com.aditya.expensetracker.expense_tracker.entity.Category;
+import com.aditya.expensetracker.expense_tracker.entity.ExpenseType;
+
 import lombok.Builder;
 import lombok.Data;
 
@@ -16,6 +18,8 @@ public class ExpenseResponse {
     private String title;
 
     private BigDecimal amount;
+    
+    private ExpenseType type;
 
     private Category category;
 

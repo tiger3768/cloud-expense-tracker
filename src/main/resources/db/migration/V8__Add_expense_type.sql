@@ -1,0 +1,13 @@
+ALTER TABLE expenses
+ADD COLUMN type VARCHAR(20);
+
+UPDATE expenses
+SET type =
+CASE
+    WHEN category = 'SALARY'
+        THEN 'INCOME'
+    ELSE 'EXPENSE'
+END;
+
+ALTER TABLE expenses
+ALTER COLUMN type SET NOT NULL;

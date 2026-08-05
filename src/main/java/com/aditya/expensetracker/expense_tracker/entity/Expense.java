@@ -29,6 +29,10 @@ public class Expense {
     @Column(nullable = false, precision = 12, scale = 2)
     @NotNull(message = "Amount is required")
     private BigDecimal amount;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ExpenseType type;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

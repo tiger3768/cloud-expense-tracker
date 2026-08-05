@@ -124,4 +124,14 @@ public class GlobalExceptionHandler {
 
         return ResponseEntity.status(status).body(response);
     }
+    
+    @ExceptionHandler(InvalidAnalyticsRequestException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidAnalyticsRequest(
+            InvalidAnalyticsRequestException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.BAD_REQUEST,
+                ex.getMessage()
+        );
+    }
 }

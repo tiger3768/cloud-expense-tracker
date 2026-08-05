@@ -8,14 +8,31 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
+import java.math.BigDecimal;
 import java.util.Optional;
 
-public interface ExpenseRepository extends JpaRepository<Expense, Long>, JpaSpecificationExecutor<Expense> {
+public interface ExpenseRepository
+        extends JpaRepository<Expense, Long>,
+        JpaSpecificationExecutor<Expense> {
+	
+	interface MonthlySummaryProjection {
 
-	Page<Expense> findByUser(
-	        User user,
-	        Pageable pageable
-	);
+	    Integer getMonth();
 
-    Optional<Expense> findByIdAndUser(Long id, User user);
+	    BigDecimal getIncome();
+
+	    BigDecimal getExpense();
+
+	}
+
+    Page<Expense> findByUser(
+            User user,
+            Pageable pageable
+    );
+
+    Optional<Expense> findByIdAndUser(
+            Long id,
+            User user
+    );
+    
 }

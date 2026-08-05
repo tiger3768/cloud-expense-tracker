@@ -1,6 +1,8 @@
 package com.aditya.expensetracker.expense_tracker.dto;
 
 import com.aditya.expensetracker.expense_tracker.entity.Category;
+import com.aditya.expensetracker.expense_tracker.entity.ExpenseType;
+
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -18,6 +20,9 @@ public class CreateExpenseRequest {
     @NotNull
     @DecimalMin("0.01")
     private BigDecimal amount;
+    
+    @NotNull
+    private ExpenseType type;
 
     @NotNull
     private Category category;

@@ -11,12 +11,17 @@ import com.aditya.expensetracker.expense_tracker.mapper.ExpenseMapper;
 import com.aditya.expensetracker.expense_tracker.repository.ExpenseRepository;
 import com.aditya.expensetracker.expense_tracker.specification.ExpenseSpecification;
 import lombok.RequiredArgsConstructor;
+
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+
+import org.springframework.cache.annotation.Caching;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -32,6 +37,14 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Transactional
     @Override
+    @Caching(evict = {
+    	    @CacheEvict(value = "analytics-dashboard", allEntries = true),
+    	    @CacheEvict(value = "analytics-summary", allEntries = true),
+    	    @CacheEvict(value = "analytics-categories", allEntries = true),
+    	    @CacheEvict(value = "analytics-monthly", allEntries = true),
+    	    @CacheEvict(value = "analytics-trend", allEntries = true),
+    	    @CacheEvict(value = "analytics-recent", allEntries = true)
+    	})
     public ExpenseResponse createExpense(
             CreateExpenseRequest request,
             MultipartFile receipt) {
@@ -125,6 +138,9 @@ public class ExpenseServiceImpl implements ExpenseService {
     }
 
     @Override
+    @Cacheable(
+            value = "expenses",
+            key = "#id")
     public ExpenseResponse getExpense(Long id) {
 
         User currentUser = currentUserService.getCurrentUser();
@@ -147,6 +163,15 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Transactional
     @Override
+    @Caching(evict = {
+    	    @CacheEvict(value = "analytics-dashboard", allEntries = true),
+    	    @CacheEvict(value = "analytics-summary", allEntries = true),
+    	    @CacheEvict(value = "analytics-categories", allEntries = true),
+    	    @CacheEvict(value = "analytics-monthly", allEntries = true),
+    	    @CacheEvict(value = "analytics-trend", allEntries = true),
+    	    @CacheEvict(value = "analytics-recent", allEntries = true),
+    	    @CacheEvict(value = "expenses", key = "#id")
+    })
     public ExpenseResponse updateExpense(
             Long id,
             CreateExpenseRequest request,
@@ -187,6 +212,15 @@ public class ExpenseServiceImpl implements ExpenseService {
 
     @Transactional
     @Override
+    @Caching(evict = {
+    	    @CacheEvict(value = "analytics-dashboard", allEntries = true),
+    	    @CacheEvict(value = "analytics-summary", allEntries = true),
+    	    @CacheEvict(value = "analytics-categories", allEntries = true),
+    	    @CacheEvict(value = "analytics-monthly", allEntries = true),
+    	    @CacheEvict(value = "analytics-trend", allEntries = true),
+    	    @CacheEvict(value = "analytics-recent", allEntries = true),
+    	    @CacheEvict(value = "expenses", key = "#id")
+    })
     public void deleteExpense(Long id) {
 
         User currentUser = currentUserService.getCurrentUser();
