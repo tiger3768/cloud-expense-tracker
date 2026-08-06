@@ -2,6 +2,9 @@ package com.aditya.expensetracker.expense_tracker.exception;
 
 import com.aditya.expensetracker.expense_tracker.dto.ErrorResponse;
 import com.aditya.expensetracker.expense_tracker.dto.ValidationErrorResponse;
+
+import jakarta.persistence.OptimisticLockException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -113,15 +116,16 @@ public class GlobalExceptionHandler {
                 ex.getMessage());
     }
 
-    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
-    public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(
-            ObjectOptimisticLockingFailureException ex) {
+    @ExceptionHandler({
+        OptimisticLockException.class,
+        ObjectOptimisticLockingFailureException.class
+})
+public ResponseEntity<ErrorResponse> handleOptimisticLocking(Exception ex) {
 
-        return buildErrorResponse(
-                HttpStatus.CONFLICT,
-                "This expense was changed by another request in the meantime. "
-                        + "Please reload it and try again.");
-    }
+    return buildErrorResponse(
+            HttpStatus.CONFLICT,
+            "This expense was modified by another user. Please refresh and try again.");
+}
 
     private ResponseEntity<ErrorResponse> buildErrorResponse(
             HttpStatus status,

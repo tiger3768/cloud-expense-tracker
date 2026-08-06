@@ -22,14 +22,12 @@ public interface ExpenseMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "receiptKey", ignore = true)
-    @Mapping(target = "version", ignore = true)
     Expense toEntity(CreateExpenseRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "receiptKey", ignore = true)
-    @Mapping(target = "version", ignore = true)
     void updateExpenseFromRequest(
             CreateExpenseRequest request,
             @MappingTarget Expense expense);

@@ -31,4 +31,7 @@ public class CreateExpenseRequest {
 
     @NotNull
     private LocalDate expenseDate;
+    
+    @NotNull
+    private Long version;
 }
