@@ -23,7 +23,6 @@ import org.springframework.web.multipart.MultipartFile;
 
 import org.springframework.cache.annotation.Caching;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -53,7 +52,8 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense expense = expenseMapper.toEntity(request);
 
-        expense.setCreatedAt(LocalDateTime.now());
+        // createdAt/createdBy are now populated automatically by JPA
+        // auditing (see BaseAuditableEntity) -- no manual timestamp needed.
         expense.setUser(currentUser);
 
         if (receipt != null && !receipt.isEmpty()) {
