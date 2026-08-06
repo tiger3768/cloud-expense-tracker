@@ -4,6 +4,7 @@ import com.aditya.expensetracker.expense_tracker.dto.ErrorResponse;
 import com.aditya.expensetracker.expense_tracker.dto.ValidationErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -110,6 +111,16 @@ public class GlobalExceptionHandler {
         return buildErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 ex.getMessage());
+    }
+
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockingFailure(
+            ObjectOptimisticLockingFailureException ex) {
+
+        return buildErrorResponse(
+                HttpStatus.CONFLICT,
+                "This expense was changed by another request in the meantime. "
+                        + "Please reload it and try again.");
     }
 
     private ResponseEntity<ErrorResponse> buildErrorResponse(

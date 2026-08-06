@@ -28,4 +28,6 @@ public class ExpenseResponse {
     private LocalDate expenseDate;
 
     private String receiptUrl;
+
+    private Long version;
 }
