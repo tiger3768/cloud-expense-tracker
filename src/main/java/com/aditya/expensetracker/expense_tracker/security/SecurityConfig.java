@@ -19,6 +19,8 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
+    private final RateLimitFilter rateLimitFilter;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
@@ -55,10 +57,14 @@ public class SecurityConfig {
 
                         .anyRequest().authenticated()
                 )
-
+                
                 .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
+                    rateLimitFilter,
+                    UsernamePasswordAuthenticationFilter.class
+                )
+                .addFilterAfter(
+                    jwtAuthenticationFilter,
+                    RateLimitFilter.class
                 );
 
         return http.build();
