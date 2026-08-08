@@ -106,6 +106,7 @@ public interface AnalyticsRepository extends JpaRepository<Expense, Long> {
 
             WHERE
                 user_id = :userId
+                AND deleted = false
                 AND expense_date BETWEEN :from AND :to
                 AND (:category IS NULL OR category = :category)
                 AND (:type IS NULL OR type = :type)
@@ -146,6 +147,7 @@ public interface AnalyticsRepository extends JpaRepository<Expense, Long> {
 
             WHERE
                 user_id = :userId
+                AND deleted = false
                 AND expense_date BETWEEN :from AND :to
                 AND (:category IS NULL OR category = :category)
                 AND (:type IS NULL OR type = :type)

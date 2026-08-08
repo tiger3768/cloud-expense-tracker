@@ -10,8 +10,6 @@ import com.aditya.expensetracker.expense_tracker.exception.ResourceNotFoundExcep
 import com.aditya.expensetracker.expense_tracker.mapper.ExpenseMapper;
 import com.aditya.expensetracker.expense_tracker.repository.ExpenseRepository;
 import com.aditya.expensetracker.expense_tracker.specification.ExpenseSpecification;
-
-import jakarta.persistence.OptimisticLockException;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.cache.annotation.CacheEvict;
@@ -26,7 +24,6 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.cache.annotation.Caching;
 
 import java.util.List;
-import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +52,8 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense expense = expenseMapper.toEntity(request);
 
+        // createdAt/createdBy are now populated automatically by JPA
+        // auditing (see BaseAuditableEntity) -- no manual timestamp needed.
         expense.setUser(currentUser);
 
         if (receipt != null && !receipt.isEmpty()) {
@@ -185,10 +184,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
 
-        if (!Objects.equals(request.getVersion(), expense.getVersion())) {
-            throw new OptimisticLockException();
-        }
-
         expenseMapper.updateExpenseFromRequest(request, expense);
 
         if (receipt != null && !receipt.isEmpty()) {
@@ -234,10 +229,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .findByIdAndUser(id, currentUser)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
-
-        if (expense.getReceiptKey() != null) {
-            fileStorageService.deleteFile(expense.getReceiptKey());
-        }
 
         expenseRepository.delete(expense);
     }
