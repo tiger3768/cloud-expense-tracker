@@ -25,6 +25,12 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String AUTH_PATH_PREFIX = "/api/auth/";
 
     private final RateLimitService rateLimitService;
+    
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+
+        return request.getRequestURI().startsWith("/actuator");
+    }
 
     @Override
     protected void doFilterInternal(
