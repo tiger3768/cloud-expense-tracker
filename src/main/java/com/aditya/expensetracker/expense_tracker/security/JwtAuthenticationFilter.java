@@ -3,6 +3,7 @@ package com.aditya.expensetracker.expense_tracker.security;
 import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.service.CustomUserDetailsService;
 import com.aditya.expensetracker.expense_tracker.service.JwtService;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -49,34 +51,41 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         jwt = authHeader.substring(7);
 
-        userEmail = jwtService.extractEmail(jwt);
+        try {
 
-        if (userEmail != null &&
-                SecurityContextHolder.getContext()
-                        .getAuthentication() == null) {
+            userEmail = jwtService.extractEmail(jwt);
 
-            UserDetails userDetails =
-                    userDetailsService
-                            .loadUserByUsername(userEmail);
+            if (userEmail != null &&
+                    SecurityContextHolder.getContext()
+                            .getAuthentication() == null) {
 
-            if (jwtService.isTokenValid(jwt,
-                    (User)userDetails)) {
+                UserDetails userDetails =
+                        userDetailsService
+                                .loadUserByUsername(userEmail);
 
-                UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(
-                                userDetails,
-                                null,
-                                userDetails.getAuthorities()
-                        );
+                if (jwtService.isTokenValid(jwt,
+                        (User) userDetails)) {
 
-                authToken.setDetails(
-                        new WebAuthenticationDetailsSource()
-                                .buildDetails(request)
-                );
+                    UsernamePasswordAuthenticationToken authToken =
+                            new UsernamePasswordAuthenticationToken(
+                                    userDetails,
+                                    null,
+                                    userDetails.getAuthorities()
+                            );
 
-                SecurityContextHolder.getContext()
-                        .setAuthentication(authToken);
+                    authToken.setDetails(
+                            new WebAuthenticationDetailsSource()
+                                    .buildDetails(request)
+                    );
+
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authToken);
+                }
             }
+
+        } catch (JwtException | UsernameNotFoundException | IllegalArgumentException ex) {
+
+            SecurityContextHolder.clearContext();
         }
 
         filterChain.doFilter(request, response);

@@ -1,5 +1,6 @@
 package com.aditya.expensetracker.expense_tracker.security;
 
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -47,25 +48,32 @@ public class SecurityConfig {
                                 SessionCreationPolicy.STATELESS
                         ))
 
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((request, response, authException) ->
+                                response.sendError(
+                                        HttpServletResponse.SC_UNAUTHORIZED,
+                                        "Unauthorized"))
+                )
+
                 .authorizeHttpRequests(auth -> auth
 
                         .requestMatchers(
                                 "/api/auth/**",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/actuator/**"
+                                "swagger-ui/**",
+                                "/v3/api-docs/**"
                         ).permitAll()
 
                         .anyRequest().authenticated()
                 )
-                
+
                 .addFilterBefore(
-                    rateLimitFilter,
-                    UsernamePasswordAuthenticationFilter.class
+                        jwtAuthenticationFilter,
+                        UsernamePasswordAuthenticationFilter.class
                 )
-                .addFilterAfter(
-                    jwtAuthenticationFilter,
-                    RateLimitFilter.class
+
+                .addFilterBefore(
+                        rateLimitFilter,
+                        JwtAuthenticationFilter.class
                 );
 
         return http.build();

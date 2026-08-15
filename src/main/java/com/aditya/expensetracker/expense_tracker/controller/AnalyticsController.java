@@ -3,8 +3,6 @@ package com.aditya.expensetracker.expense_tracker.controller;
 import java.util.List;
 
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,8 +15,8 @@ import com.aditya.expensetracker.expense_tracker.dto.analytics.DashboardCardResp
 import com.aditya.expensetracker.expense_tracker.dto.analytics.MonthlySummaryResponse;
 import com.aditya.expensetracker.expense_tracker.dto.analytics.RecentExpenseResponse;
 import com.aditya.expensetracker.expense_tracker.dto.analytics.SpendingTrendResponse;
-import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.service.AnalyticsService;
+import com.aditya.expensetracker.expense_tracker.service.CurrentUserService;
 
 import io.swagger.v3.oas.annotations.Operation;
 import jakarta.validation.Valid;
@@ -31,6 +29,8 @@ import lombok.RequiredArgsConstructor;
 public class AnalyticsController {
 
     private final AnalyticsService analyticsService;
+    
+    private final CurrentUserService currentUserService;
 
     @Operation(
             summary = "Analytics Dashboard",
@@ -141,14 +141,7 @@ public class AnalyticsController {
     }
 
     private Long getCurrentUserId() {
-
-        Authentication authentication =
-                SecurityContextHolder.getContext().getAuthentication();
-
-        User user = (User) authentication.getPrincipal();
-
-        return user.getId();
-
+        return currentUserService.getCurrentUserId();
     }
 
 }

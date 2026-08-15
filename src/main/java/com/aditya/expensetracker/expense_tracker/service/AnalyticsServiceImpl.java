@@ -22,6 +22,8 @@ import com.aditya.expensetracker.expense_tracker.dto.analytics.MonthlySummaryRes
 import com.aditya.expensetracker.expense_tracker.dto.analytics.RecentExpenseResponse;
 import com.aditya.expensetracker.expense_tracker.dto.analytics.SpendingTrendResponse;
 import com.aditya.expensetracker.expense_tracker.dto.analytics.TrendPointResponse;
+import com.aditya.expensetracker.expense_tracker.entity.Category;
+import com.aditya.expensetracker.expense_tracker.entity.ExpenseType;
 import com.aditya.expensetracker.expense_tracker.exception.InvalidAnalyticsRequestException;
 import com.aditya.expensetracker.expense_tracker.repository.AnalyticsRepository;
 import com.aditya.expensetracker.expense_tracker.repository.projection.CategorySummaryProjection;
@@ -45,16 +47,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
     private final AnalyticsRepository analyticsRepository;
 
-    // Self-injected proxy so calls made from within this class (e.g. from
-    // getDashboard) still go through the Spring AOP proxy and hit the
-    // per-method @Cacheable caches instead of silently bypassing them.
-    //
-    // NOTE: this is deliberately field-injected via @Autowired, not added to
-    // the Lombok-generated constructor. @Lazy on a constructor parameter only
-    // works if it's present on the actual constructor, and Lombok's
-    // @RequiredArgsConstructor does not copy @Lazy onto generated parameters
-    // by default -- so putting `final AnalyticsService self` in the
-    // constructor recreates the circular dependency this is meant to fix.
     @Autowired
     @Lazy
     private AnalyticsService self;
@@ -74,8 +66,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDate from = resolveFrom(request);
         LocalDate to = resolveTo(request);
 
-        String category = normalizeCategory(request);
-        String type = normalizeType(request);
+        Category category = normalizeCategory(request);
+        ExpenseType type = normalizeType(request);
 
         DashboardSummaryProjection projection =
                 analyticsRepository.getDashboardSummary(
@@ -123,8 +115,12 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDate from = resolveFrom(request);
         LocalDate to = resolveTo(request);
 
-        String category = normalizeCategory(request);
-        String type = normalizeType(request);
+        Category category = normalizeCategory(request);
+        ExpenseType type = normalizeType(request);
+
+        if (type == null) {
+            type = ExpenseType.EXPENSE;
+        }
 
         List<CategorySummaryProjection> rows =
                 analyticsRepository.getCategorySummary(
@@ -187,16 +183,16 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDate from = resolveFrom(request);
         LocalDate to = resolveTo(request);
 
-        String category = normalizeCategory(request);
-        String type = normalizeType(request);
+        Category category = normalizeCategory(request);
+        ExpenseType type = normalizeType(request);
 
         List<MonthlySummaryProjection> rows =
                 analyticsRepository.getMonthlySummary(
                         userId,
                         from,
                         to,
-                        category,
-                        type
+                        category == null ? null : category.name(),
+                        type == null ? null : type.name()
                 );
 
         if (rows.isEmpty()) {
@@ -241,16 +237,16 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDate from = resolveFrom(request);
         LocalDate to = resolveTo(request);
 
-        String category = normalizeCategory(request);
-        String type = normalizeType(request);
+        Category category = normalizeCategory(request);
+        ExpenseType type = normalizeType(request);
 
         List<TrendProjection> rows =
                 analyticsRepository.getTrend(
                         userId,
                         from,
                         to,
-                        category,
-                        type
+                        category == null ? null : category.name(),
+                        type == null ? null : type.name()
                 );
 
         if (rows.isEmpty()) {
@@ -296,8 +292,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
         LocalDate from = resolveFrom(request);
         LocalDate to = resolveTo(request);
 
-        String category = normalizeCategory(request);
-        String type = normalizeType(request);
+        Category category = normalizeCategory(request);
+        ExpenseType type = normalizeType(request);
 
         Pageable pageable =
                 PageRequest.of(
@@ -434,7 +430,7 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 MAX_LIMIT
         );
     }
-    private String normalizeCategory(
+    private Category normalizeCategory(
             AnalyticsFilterRequest request
     ) {
 
@@ -444,12 +440,19 @@ public class AnalyticsServiceImpl implements AnalyticsService {
 
         String value = request.category().trim();
 
-        return value.isBlank()
-                ? null
-                : value.toUpperCase();
+        if (value.isBlank()) {
+            return null;
+        }
+
+        try {
+            return Category.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidAnalyticsRequestException(
+                    "Invalid category: " + value);
+        }
     }
 
-    private String normalizeType(
+    private ExpenseType normalizeType(
             AnalyticsFilterRequest request
     ) {
 
@@ -463,6 +466,11 @@ public class AnalyticsServiceImpl implements AnalyticsService {
             return null;
         }
 
-        return value.toUpperCase();
+        try {
+            return ExpenseType.valueOf(value.toUpperCase());
+        } catch (IllegalArgumentException ex) {
+            throw new InvalidAnalyticsRequestException(
+                    "Invalid type: " + value);
+        }
     }
 }

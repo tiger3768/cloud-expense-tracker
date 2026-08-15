@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import com.aditya.expensetracker.expense_tracker.entity.Category;
 import com.aditya.expensetracker.expense_tracker.entity.Expense;
+import com.aditya.expensetracker.expense_tracker.entity.ExpenseType;
 import com.aditya.expensetracker.expense_tracker.repository.projection.CategorySummaryProjection;
 import com.aditya.expensetracker.expense_tracker.repository.projection.DashboardSummaryProjection;
 import com.aditya.expensetracker.expense_tracker.repository.projection.MonthlySummaryProjection;
@@ -53,8 +55,8 @@ public interface AnalyticsRepository extends JpaRepository<Expense, Long> {
             @Param("userId") Long userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
-            @Param("category") String category,
-            @Param("type") String type
+            @Param("category") Category category,
+            @Param("type") ExpenseType type
     );
 
     @Query("""
@@ -78,8 +80,8 @@ public interface AnalyticsRepository extends JpaRepository<Expense, Long> {
             @Param("userId") Long userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
-            @Param("category") String category,
-            @Param("type") String type
+            @Param("category") Category category,
+            @Param("type") ExpenseType type
     );
 
     @Query(value = """
@@ -187,8 +189,8 @@ public interface AnalyticsRepository extends JpaRepository<Expense, Long> {
             @Param("userId") Long userId,
             @Param("from") LocalDate from,
             @Param("to") LocalDate to,
-            @Param("category") String category,
-            @Param("type") String type,
+            @Param("category") Category category,
+            @Param("type") ExpenseType type,
             Pageable pageable
     );
 }

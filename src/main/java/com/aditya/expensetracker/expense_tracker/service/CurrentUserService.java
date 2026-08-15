@@ -1,12 +1,16 @@
 package com.aditya.expensetracker.expense_tracker.service;
 
-import com.aditya.expensetracker.expense_tracker.entity.User;
-import com.aditya.expensetracker.expense_tracker.repository.UserRepository;
-import lombok.RequiredArgsConstructor;
+import java.util.Optional;
+
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+
+import com.aditya.expensetracker.expense_tracker.entity.User;
+import com.aditya.expensetracker.expense_tracker.repository.UserRepository;
+
+import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
@@ -16,18 +20,28 @@ public class CurrentUserService {
 
     public User getCurrentUser() {
 
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        return getCurrentUserOptional()
+                .orElseThrow(() ->
+                        new RuntimeException("No authenticated user"));
+    }
 
-        if (authentication == null ||
-                !authentication.isAuthenticated() ||
-                authentication instanceof AnonymousAuthenticationToken) {
+    public Optional<User> getCurrentUserOptional() {
 
-            throw new RuntimeException("No authenticated user");
+        Authentication authentication =
+                SecurityContextHolder.getContext().getAuthentication();
+
+        if (authentication == null
+                || !authentication.isAuthenticated()
+                || authentication instanceof AnonymousAuthenticationToken) {
+
+            return Optional.empty();
         }
 
-        String email = authentication.getName();
+        return userRepository.findByEmail(authentication.getName());
+    }
 
-        return userRepository.findByEmail(email)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public Long getCurrentUserId() {
+
+        return getCurrentUser().getId();
     }
 }

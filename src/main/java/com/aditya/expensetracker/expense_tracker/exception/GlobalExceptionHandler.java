@@ -8,6 +8,8 @@ import jakarta.persistence.OptimisticLockException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.validation.BindException;
+import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -148,5 +150,30 @@ public ResponseEntity<ErrorResponse> handleOptimisticLocking(Exception ex) {
                 HttpStatus.BAD_REQUEST,
                 ex.getMessage()
         );
+    }
+    
+    @ExceptionHandler(BindException.class)
+    public ResponseEntity<ValidationErrorResponse> handleBindException(
+            BindException ex) {
+
+        Map<String, String> errors = new HashMap<>();
+
+        for (FieldError error : ex.getBindingResult().getFieldErrors()) {
+            errors.put(
+                    error.getField(),
+                    error.getDefaultMessage()
+            );
+        }
+
+        ValidationErrorResponse response =
+                ValidationErrorResponse.builder()
+                        .timestamp(LocalDateTime.now())
+                        .status(HttpStatus.BAD_REQUEST.value())
+                        .errors(errors)
+                        .build();
+
+        return ResponseEntity
+                .badRequest()
+                .body(response);
     }
 }

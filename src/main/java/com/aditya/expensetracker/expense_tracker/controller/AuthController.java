@@ -35,7 +35,9 @@ public class AuthController {
         @ApiResponse(responseCode = "400", description = "Validation failed")
     })
     @PostMapping("/register")
-    public void register(@RequestBody RegisterRequest request) {
+    public void register(
+            @Valid @RequestBody RegisterRequest request
+    ) {
         authService.register(request);
     }
     
@@ -59,7 +61,9 @@ public class AuthController {
         @ApiResponse(responseCode = "401", description = "Invalid credentials")
     })
     @PostMapping("/login")
-    public AuthResponse login(@RequestBody LoginRequest request) {
+    public AuthResponse login(
+            @Valid @RequestBody LoginRequest request
+    ) {
         return authService.login(request);
     }
     
