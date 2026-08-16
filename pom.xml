@@ -192,8 +192,7 @@
 		    <artifactId>spring-boot-starter-data-redis</artifactId>
 		</dependency>
 
-        <!-- Rate limiting (token bucket, Redis-backed so limits are shared
-             across all instances, not per-JVM) -->
+        <!-- Rate limiting -->
         <dependency>
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-core</artifactId>
@@ -203,6 +202,13 @@
             <groupId>com.bucket4j</groupId>
             <artifactId>bucket4j_jdk17-lettuce</artifactId>
             <version>8.19.0</version>
+        </dependency>
+
+        <!-- Structured JSON logging in production -->
+        <dependency>
+            <groupId>net.logstash.logback</groupId>
+            <artifactId>logstash-logback-encoder</artifactId>
+            <version>9.0</version>
         </dependency>
 
     </dependencies>

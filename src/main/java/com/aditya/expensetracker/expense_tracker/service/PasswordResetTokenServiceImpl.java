@@ -12,7 +12,9 @@ import com.aditya.expensetracker.expense_tracker.exception.InvalidPasswordResetT
 import com.aditya.expensetracker.expense_tracker.repository.PasswordResetTokenRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PasswordResetTokenServiceImpl implements PasswordResetTokenService {
@@ -42,11 +44,17 @@ public class PasswordResetTokenServiceImpl implements PasswordResetTokenService 
 
 	    PasswordResetToken resetToken =
 	            passwordResetTokenRepository.findByToken(token)
-	                    .orElseThrow(() ->
-	                            new InvalidPasswordResetTokenException(
-	                                    "Invalid password reset token"));
+	                    .orElseThrow(() -> {
+	                        log.warn("Password reset attempted with unknown token");
+	                        return new InvalidPasswordResetTokenException(
+	                                "Invalid password reset token");
+	                    });
 
 	    if (resetToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+
+	        log.warn(
+	                "Password reset attempted with expired token for {}",
+	                resetToken.getUser().getEmail());
 
 	        throw new InvalidPasswordResetTokenException(
 	                "Password reset token has expired");

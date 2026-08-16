@@ -1,5 +1,6 @@
 package com.aditya.expensetracker.expense_tracker.security;
 
+import com.aditya.expensetracker.expense_tracker.logging.CorrelationIdFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -21,6 +22,8 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
     private final RateLimitFilter rateLimitFilter;
+
+    private final CorrelationIdFilter correlationIdFilter;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -74,6 +77,11 @@ public class SecurityConfig {
                 .addFilterBefore(
                         rateLimitFilter,
                         JwtAuthenticationFilter.class
+                )
+
+                .addFilterBefore(
+                        correlationIdFilter,
+                        RateLimitFilter.class
                 );
 
         return http.build();

@@ -1,8 +1,11 @@
 package com.aditya.expensetracker.expense_tracker.security;
 
 import java.io.IOException;
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
 
-import org.springframework.http.HttpStatus;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -11,6 +14,9 @@ import com.aditya.expensetracker.expense_tracker.service.RateLimitService;
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.ConsumptionProbe;
 
+import org.springframework.http.HttpStatus;
+
+import jakarta.annotation.PostConstruct;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,11 +31,18 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private static final String AUTH_PATH_PREFIX = "/api/auth/";
 
     private final RateLimitService rateLimitService;
-    
-    @Override
-    protected boolean shouldNotFilter(HttpServletRequest request) {
 
-        return request.getRequestURI().startsWith("/actuator");
+    @Value("${app.rate-limit.trusted-proxies:}")
+    private String trustedProxiesProperty;
+
+    private Set<String> trustedProxies;
+
+    @PostConstruct
+    private void init() {
+        trustedProxies = Arrays.stream(trustedProxiesProperty.split(","))
+                .map(String::trim)
+                .filter(ip -> !ip.isBlank())
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -56,11 +69,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
                     String.valueOf(probe.getRemainingTokens()));
 
             if (!probe.isConsumed()) {
+
+                logger.warn(
+                        "Rate limit exceeded for " + clientKey
+                                + " on " + request.getMethod() + " "
+                                + request.getRequestURI()
+                                + " (tier=" + (isAuthEndpoint ? "auth" : "api") + ")");
+
                 rejectWithTooManyRequests(response, probe);
                 return;
             }
 
         } catch (Exception ex) {
+
             logger.warn(
                     "Rate limiting unavailable, allowing request through: "
                             + ex.getMessage());
@@ -85,7 +106,14 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         + retryAfterSeconds + " seconds.\"}");
     }
 
+
     private String resolveClientKey(HttpServletRequest request) {
+
+        String remoteAddr = request.getRemoteAddr();
+
+        if (!trustedProxies.contains(remoteAddr)) {
+            return remoteAddr;
+        }
 
         String forwardedFor = request.getHeader("X-Forwarded-For");
 
@@ -93,6 +121,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
             return forwardedFor.split(",")[0].trim();
         }
 
-        return request.getRemoteAddr();
+        return remoteAddr;
     }
 }

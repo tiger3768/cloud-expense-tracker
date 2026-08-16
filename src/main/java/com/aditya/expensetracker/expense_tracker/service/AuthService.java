@@ -27,7 +27,9 @@ import com.aditya.expensetracker.expense_tracker.repository.PasswordResetTokenRe
 import com.aditya.expensetracker.expense_tracker.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
@@ -66,6 +68,8 @@ public class AuthService {
 
         userRepository.save(user);
 
+        log.info("New user registered: {}", user.getEmail());
+
         eventPublisher.publish(
                 new UserRegisteredEvent(user.getId()));
     }
@@ -89,18 +93,23 @@ public class AuthService {
     public AuthResponse login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new InvalidCredentialsException("Invalid email or password"));
+                .orElseThrow(() -> {
+                    log.warn("Login attempt for unknown email: {}", request.getEmail());
+                    return new InvalidCredentialsException("Invalid email or password");
+                });
 
         boolean matches = passwordEncoder.matches(
                 request.getPassword(),
                 user.getPassword());
         
         if (!user.isEnabled()) {
+            log.warn("Login attempt for unverified account: {}", user.getEmail());
             throw new InvalidCredentialsException(
                     "Please verify your email before logging in.");
         }
 
         if (!matches) {
+        	log.warn("Login attempt with wrong password: {}", user.getEmail());
         	throw new InvalidCredentialsException("Invalid email or password");
         }
 
@@ -108,6 +117,8 @@ public class AuthService {
 
         RefreshToken refreshToken =
                 refreshTokenService.createRefreshToken(user);
+
+        log.info("User logged in: {}", user.getEmail());
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -148,6 +159,8 @@ public class AuthService {
                             .ifPresent(
                                     passwordResetTokenService::deletePasswordResetToken);
 
+                    log.info("Password reset requested for {}", user.getEmail());
+
                     eventPublisher.publish(
                             new ForgotPasswordRequestedEvent(
                                     user.getId()));
@@ -172,6 +185,8 @@ public class AuthService {
                 .deletePasswordResetToken(resetToken);
 
         refreshTokenService.revokeAllRefreshTokens(user);
+
+        log.info("Password reset completed for {}", user.getEmail());
     }
     
     public void logout(RefreshTokenRequest request) {
@@ -181,5 +196,7 @@ public class AuthService {
                         request.getRefreshToken());
 
         refreshTokenService.revokeRefreshToken(refreshToken);
+
+        log.info("User logged out: {}", refreshToken.getUser().getEmail());
     }
 }

@@ -12,7 +12,9 @@ import com.aditya.expensetracker.expense_tracker.exception.InvalidVerificationTo
 import com.aditya.expensetracker.expense_tracker.repository.EmailVerificationTokenRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailVerificationTokenServiceImpl
@@ -42,12 +44,18 @@ public class EmailVerificationTokenServiceImpl
 
         EmailVerificationToken verificationToken =
                 verificationTokenRepository.findByToken(token)
-                        .orElseThrow(() ->
-                                new InvalidVerificationTokenException(
-                                        "Invalid verification token"));
+                        .orElseThrow(() -> {
+                            log.warn("Verification attempted with unknown token");
+                            return new InvalidVerificationTokenException(
+                                    "Invalid verification token");
+                        });
 
         if (verificationToken.getExpiresAt()
                 .isBefore(LocalDateTime.now())) {
+
+            log.warn(
+                    "Verification attempted with expired token for {}",
+                    verificationToken.getUser().getEmail());
 
             throw new InvalidVerificationTokenException(
                     "Verification token has expired");

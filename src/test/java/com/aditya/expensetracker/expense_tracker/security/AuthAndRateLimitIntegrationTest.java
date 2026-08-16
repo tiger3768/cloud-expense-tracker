@@ -94,16 +94,6 @@ class AuthAndRateLimitIntegrationTest extends AbstractIntegrationTest {
                             String.class
                     );
 
-            System.out.println(
-                    "Attempt " + attempt
-                            + " -> status=" + response.getStatusCode()
-                            + ", remaining="
-                            + response.getHeaders()
-                                    .getFirst("X-RateLimit-Remaining")
-                            + ", retryAfter="
-                            + response.getHeaders()
-                                    .getFirst("Retry-After")
-            );
 
             if (attempt == 6) {
                 assertThat(response.getStatusCode())

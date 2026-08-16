@@ -13,7 +13,9 @@ import com.aditya.expensetracker.expense_tracker.exception.InvalidRefreshTokenEx
 import com.aditya.expensetracker.expense_tracker.repository.RefreshTokenRepository;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RefreshTokenServiceImpl implements RefreshTokenService {
@@ -41,16 +43,24 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
 
         RefreshToken refreshToken = refreshTokenRepository
                 .findByToken(token)
-                .orElseThrow(() ->
-                	new InvalidRefreshTokenException(
-                        "Invalid refresh token"));
+                .orElseThrow(() -> {
+                	log.warn("Refresh attempted with unknown token");
+                	return new InvalidRefreshTokenException(
+                        "Invalid refresh token");
+                });
 
         if (refreshToken.isRevoked()) {
+            log.warn(
+                    "Refresh attempted with already-revoked token for {}",
+                    refreshToken.getUser().getEmail());
             throw new InvalidRefreshTokenException(
                     "Refresh token has been revoked");
         }
 
         if (refreshToken.getExpiresAt().isBefore(LocalDateTime.now())) {
+            log.warn(
+                    "Refresh attempted with expired token for {}",
+                    refreshToken.getUser().getEmail());
             throw new InvalidRefreshTokenException(
                     "Refresh token has expired");
         }
@@ -75,5 +85,10 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
         refreshTokens.forEach(token -> token.setRevoked(true));
 
         refreshTokenRepository.saveAll(refreshTokens);
+
+        log.info(
+                "Revoked {} refresh token(s) for {}",
+                refreshTokens.size(),
+                user.getEmail());
     }
 }

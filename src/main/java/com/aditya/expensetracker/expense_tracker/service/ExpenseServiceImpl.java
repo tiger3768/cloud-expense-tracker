@@ -11,6 +11,7 @@ import com.aditya.expensetracker.expense_tracker.mapper.ExpenseMapper;
 import com.aditya.expensetracker.expense_tracker.repository.ExpenseRepository;
 import com.aditya.expensetracker.expense_tracker.specification.ExpenseSpecification;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
@@ -25,6 +26,7 @@ import org.springframework.cache.annotation.Caching;
 
 import java.util.List;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ExpenseServiceImpl implements ExpenseService {
@@ -52,8 +54,7 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense expense = expenseMapper.toEntity(request);
 
-        // createdAt/createdBy are now populated automatically by JPA
-        // auditing (see BaseAuditableEntity) -- no manual timestamp needed.
+
         expense.setUser(currentUser);
 
         if (receipt != null && !receipt.isEmpty()) {
@@ -62,6 +63,11 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         Expense savedExpense = expenseRepository.save(expense);
+
+        log.info(
+                "Expense {} created by {}",
+                savedExpense.getId(),
+                currentUser.getEmail());
 
         ExpenseResponse response = expenseMapper.toResponse(savedExpense);
 
@@ -199,6 +205,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense updatedExpense = expenseRepository.save(expense);
 
+        log.info(
+                "Expense {} updated by {}",
+                updatedExpense.getId(),
+                currentUser.getEmail());
+
         ExpenseResponse response = expenseMapper.toResponse(updatedExpense);
 
         if (updatedExpense.getReceiptKey() != null) {
@@ -231,5 +242,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                         new ResourceNotFoundException("Expense not found"));
 
         expenseRepository.delete(expense);
+
+        log.info(
+                "Expense {} deleted by {}",
+                id,
+                currentUser.getEmail());
     }
 }

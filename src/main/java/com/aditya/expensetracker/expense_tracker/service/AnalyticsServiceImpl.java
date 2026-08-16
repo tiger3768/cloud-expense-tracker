@@ -36,7 +36,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -344,6 +346,8 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     ) {
 
         validateRequest(request);
+
+        log.debug("Building dashboard for user {} with filter {}", userId, request);
 
         DashboardCardResponse summary =
                 self.getSummary(userId, request);

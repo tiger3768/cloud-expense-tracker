@@ -10,7 +10,9 @@ import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.exception.EmailDeliveryException;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class EmailServiceImpl implements EmailService {
@@ -39,8 +41,12 @@ public class EmailServiceImpl implements EmailService {
 	                + "\n\nThis link expires in 24 hours.");
 	
 	        mailSender.send(message);
+
+	        log.info("Verification email delivered to {}", user.getEmail());
     	}
     	catch (MailException ex) {
+
+            log.error("Failed to send verification email to {}", user.getEmail(), ex);
 
             throw new EmailDeliveryException(
                     "Failed to send verification email",
@@ -68,8 +74,12 @@ public class EmailServiceImpl implements EmailService {
 	                + "\n\nThis link expires in 1 hour.");
 	
 	        mailSender.send(message);
+
+	        log.info("Password reset email delivered to {}", user.getEmail());
     	}
     	catch (MailException ex) {
+
+            log.error("Failed to send password reset email to {}", user.getEmail(), ex);
 
             throw new EmailDeliveryException(
                     "Failed to send password reset email",

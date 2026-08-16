@@ -1,6 +1,7 @@
 package com.aditya.expensetracker.expense_tracker.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.time.Duration;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class S3FileStorageService implements FileStorageService {
@@ -50,12 +52,16 @@ public class S3FileStorageService implements FileStorageService {
                     RequestBody.fromBytes(file.getBytes())
             );
 
+            log.debug("Uploaded {} to bucket {}", key, bucketName);
+
             return key;
 
         } catch (IOException e) {
+            log.warn("Failed to read uploaded file for key {}", key, e);
             throw new RuntimeException("Failed to read uploaded file.", e);
 
         } catch (S3Exception e) {
+        	log.warn("S3 upload failed for key {} in bucket {}", key, bucketName, e);
         	throw new StorageException("Failed to upload file.", e);
         }
     }
@@ -75,8 +81,10 @@ public class S3FileStorageService implements FileStorageService {
         try {
 
             s3Client.deleteObject(request);
+            log.debug("Deleted {} from bucket {}", key, bucketName);
 
         } catch (S3Exception e) {
+        	log.warn("S3 delete failed for key {} in bucket {}", key, bucketName, e);
         	throw new StorageException("Failed to delete file.", e);
         }
     }

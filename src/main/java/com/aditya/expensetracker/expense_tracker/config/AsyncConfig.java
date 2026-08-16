@@ -7,31 +7,34 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
+import com.aditya.expensetracker.expense_tracker.logging.MdcTaskDecorator;
+
+import lombok.RequiredArgsConstructor;
+
 @Configuration
 @EnableAsync
+@RequiredArgsConstructor
 public class AsyncConfig {
 
-	@Bean(name = AsyncExecutors.EMAIL)
-	public Executor emailTaskExecutor() {
+    private final MdcTaskDecorator mdcTaskDecorator;
 
-	    ThreadPoolTaskExecutor executor =
-	            new ThreadPoolTaskExecutor();
+    @Bean(name = AsyncExecutors.EMAIL)
+    public Executor emailTaskExecutor() {
 
-	    executor.setCorePoolSize(4);
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
 
-	    executor.setMaxPoolSize(10);
+        executor.setCorePoolSize(4);
+        executor.setMaxPoolSize(10);
+        executor.setQueueCapacity(100);
+        executor.setThreadNamePrefix("email-");
 
-	    executor.setQueueCapacity(100);
+        executor.setTaskDecorator(mdcTaskDecorator);
 
-	    executor.setThreadNamePrefix(
-	            "email-");
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(30);
 
-	    executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.initialize();
 
-	    executor.setAwaitTerminationSeconds(30);
-
-	    executor.initialize();
-
-	    return executor;
-	}
+        return executor;
+    }
 }
