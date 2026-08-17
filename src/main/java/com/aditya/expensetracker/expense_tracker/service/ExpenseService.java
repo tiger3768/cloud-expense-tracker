@@ -4,6 +4,8 @@ import com.aditya.expensetracker.expense_tracker.dto.CreateExpenseRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseFilterRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseResponse;
 import com.aditya.expensetracker.expense_tracker.dto.PagedResponse;
+import com.aditya.expensetracker.expense_tracker.dto.UpdateExpenseRequest;
+
 import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -22,7 +24,7 @@ public interface ExpenseService {
 
     ExpenseResponse updateExpense(
             Long id,
-            CreateExpenseRequest request,
+            UpdateExpenseRequest request,
             MultipartFile receipt);
 
     void deleteExpense(Long id);

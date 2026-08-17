@@ -43,7 +43,7 @@ public class PasswordResetTokenServiceImpl implements PasswordResetTokenService 
 	public PasswordResetToken validatePasswordResetToken(String token) {
 
 	    PasswordResetToken resetToken =
-	            passwordResetTokenRepository.findByToken(token)
+	            passwordResetTokenRepository.findByTokenForUpdate(token)
 	                    .orElseThrow(() -> {
 	                        log.warn("Password reset attempted with unknown token");
 	                        return new InvalidPasswordResetTokenException(

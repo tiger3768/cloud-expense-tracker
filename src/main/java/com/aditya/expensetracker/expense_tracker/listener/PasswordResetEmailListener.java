@@ -1,4 +1,5 @@
 package com.aditya.expensetracker.expense_tracker.listener;
+
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
@@ -23,33 +24,22 @@ import lombok.extern.slf4j.Slf4j;
 public class PasswordResetEmailListener {
 
     private final UserRepository userRepository;
-
     private final PasswordResetTokenRepository tokenRepository;
-
     private final PasswordResetTokenService passwordResetTokenService;
-
     private final EmailService emailService;
 
     @Async(AsyncExecutors.EMAIL)
-
-    @TransactionalEventListener(
-            phase = TransactionPhase.AFTER_COMMIT)
-    public void handleForgotPassword(
-            ForgotPasswordRequestedEvent event) {
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleForgotPassword(ForgotPasswordRequestedEvent event) {
 
         User user = userRepository.findById(event.userId())
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found"));
 
         tokenRepository.findByUser(user)
-                .ifPresent(
-                        passwordResetTokenService
-                                ::deletePasswordResetToken);
+                .ifPresent(passwordResetTokenService::deletePasswordResetToken);
 
         PasswordResetToken token =
-                passwordResetTokenService
-                        .createPasswordResetToken(user);
+                passwordResetTokenService.createPasswordResetToken(user);
 
         log.info(
                 "Sending password reset email to {}",

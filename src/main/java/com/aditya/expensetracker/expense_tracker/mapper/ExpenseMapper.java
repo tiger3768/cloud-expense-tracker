@@ -8,12 +8,13 @@ import org.mapstruct.MappingTarget;
 
 import com.aditya.expensetracker.expense_tracker.dto.CreateExpenseRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseResponse;
+import com.aditya.expensetracker.expense_tracker.dto.UpdateExpenseRequest;
 import com.aditya.expensetracker.expense_tracker.entity.Expense;
 
 @Mapper(componentModel = "spring")
 public interface ExpenseMapper {
 
-	@Mapping(target = "receiptUrl", ignore = true)
+    @Mapping(target = "receiptUrl", ignore = true)
     ExpenseResponse toResponse(Expense expense);
 
     List<ExpenseResponse> toResponseList(List<Expense> expenses);
@@ -22,13 +23,15 @@ public interface ExpenseMapper {
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "receiptKey", ignore = true)
+    @Mapping(target = "version", ignore = true)
     Expense toEntity(CreateExpenseRequest request);
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "receiptKey", ignore = true)
+    @Mapping(target = "version", ignore = true)
     void updateExpenseFromRequest(
-            CreateExpenseRequest request,
+            UpdateExpenseRequest request,
             @MappingTarget Expense expense);
 }

@@ -19,11 +19,11 @@ import com.aditya.expensetracker.expense_tracker.entity.Role;
 import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.event.DomainEventPublisher;
 import com.aditya.expensetracker.expense_tracker.event.ForgotPasswordRequestedEvent;
+import com.aditya.expensetracker.expense_tracker.event.ResendVerificationRequestedEvent;
 import com.aditya.expensetracker.expense_tracker.event.UserRegisteredEvent;
 import com.aditya.expensetracker.expense_tracker.exception.DuplicateEmailException;
 import com.aditya.expensetracker.expense_tracker.exception.InvalidCredentialsException;
 import com.aditya.expensetracker.expense_tracker.mapper.UserMapper;
-import com.aditya.expensetracker.expense_tracker.repository.PasswordResetTokenRepository;
 import com.aditya.expensetracker.expense_tracker.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -47,8 +47,6 @@ public class AuthService {
     private final EmailVerificationTokenService emailVerificationTokenService;
     
     private final PasswordResetTokenService passwordResetTokenService;
-    
-    private final PasswordResetTokenRepository passwordResetTokenRepository;
     
     private final DomainEventPublisher eventPublisher;
 
@@ -74,6 +72,7 @@ public class AuthService {
                 new UserRegisteredEvent(user.getId()));
     }
     
+    @Transactional
     public void verifyEmail(String token) {
 
         EmailVerificationToken verificationToken =
@@ -147,23 +146,54 @@ public class AuthService {
     	        .refreshToken(newRefreshToken.getToken())
     	        .build();
     }
-    
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
 
         userRepository.findByEmail(request.getEmail())
-                .ifPresent(user -> {
+                .ifPresentOrElse(
+                        user -> {
+                            log.info(
+                                    "Password reset requested for {}",
+                                    user.getEmail());
 
-                    passwordResetTokenRepository
-                            .findByUser(user)
-                            .ifPresent(
-                                    passwordResetTokenService::deletePasswordResetToken);
+                            eventPublisher.publish(
+                                    new ForgotPasswordRequestedEvent(
+                                            user.getId()));
+                        },
+                        () -> {
+                            log.debug(
+                                    "Password reset requested for unknown email {}",
+                                    request.getEmail());
+                        });
+    }
 
-                    log.info("Password reset requested for {}", user.getEmail());
+    @Transactional
+    public void resendVerificationEmail(ForgotPasswordRequest request) {
 
-                    eventPublisher.publish(
-                            new ForgotPasswordRequestedEvent(
-                                    user.getId()));
+        userRepository.findByEmail(request.getEmail())
+                .ifPresentOrElse(user -> {
+
+                    if (!user.isEnabled()) {
+
+                        log.info(
+                                "Verification email resend requested for {}",
+                                user.getEmail());
+
+                        eventPublisher.publish(
+                                new ResendVerificationRequestedEvent(user.getId()));
+
+                    } else {
+
+                        log.debug(
+                                "Skipping verification email resend for already verified user {}",
+                                user.getEmail());
+                    }
+
+                }, () -> {
+
+                    log.debug(
+                            "Skipping verification email resend for unknown email {}",
+                            request.getEmail());
                 });
     }
     

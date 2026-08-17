@@ -22,68 +22,91 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    @Value("${app.base-url}")
+    private String baseUrl;
+
     @Override
     public void sendVerificationEmail(User user, String token) {
-    	try {
+        try {
 
-	        String verificationLink =
-	                "http://localhost:8080/api/auth/verify?token=" + token;
-	
-	        SimpleMailMessage message = new SimpleMailMessage();
-	
-	        message.setFrom(fromEmail);
-	        message.setTo(user.getEmail());
-	        message.setSubject("Verify your Expense Tracker account");
-	        message.setText(
-	                "Hello " + user.getName() + ",\n\n"
-	                + "Please verify your email by clicking the link below:\n\n"
-	                + verificationLink
-	                + "\n\nThis link expires in 24 hours.");
-	
-	        mailSender.send(message);
+            String verificationLink =
+                    normalizedBaseUrl() + "/api/auth/verify?token=" + token;
 
-	        log.info("Verification email delivered to {}", user.getEmail());
-    	}
-    	catch (MailException ex) {
+            SimpleMailMessage message = new SimpleMailMessage();
 
-            log.error("Failed to send verification email to {}", user.getEmail(), ex);
+            message.setFrom(fromEmail);
+            message.setTo(user.getEmail());
+            message.setSubject("Verify your Expense Tracker account");
+            message.setText(
+                    "Hello " + user.getName() + ",\n\n"
+                    + "Please verify your email by clicking the link below:\n\n"
+                    + verificationLink
+                    + "\n\nThis link expires in 24 hours.");
+
+            mailSender.send(message);
+
+            log.info(
+                    "Verification email delivered to {}",
+                    user.getEmail()
+            );
+
+        } catch (MailException ex) {
+
+            log.error(
+                    "Failed to send verification email to {}",
+                    user.getEmail(),
+                    ex
+            );
 
             throw new EmailDeliveryException(
                     "Failed to send verification email",
-                    ex);
+                    ex
+            );
         }
     }
 
     @Override
     public void sendPasswordResetEmail(User user, String token) {
-    	
-    	try {
+        try {
 
-	        String resetLink =
-	                "http://localhost:8080/api/auth/reset-password?token=" + token;
-	
-	        SimpleMailMessage message = new SimpleMailMessage();
-	
-	        message.setFrom(fromEmail);
-	        message.setTo(user.getEmail());
-	        message.setSubject("Reset your Expense Tracker password");
-	        message.setText(
-	                "Hello " + user.getName() + ",\n\n"
-	                + "Click the link below to reset your password:\n\n"
-	                + resetLink
-	                + "\n\nThis link expires in 1 hour.");
-	
-	        mailSender.send(message);
+            SimpleMailMessage message = new SimpleMailMessage();
 
-	        log.info("Password reset email delivered to {}", user.getEmail());
-    	}
-    	catch (MailException ex) {
+            message.setFrom(fromEmail);
+            message.setTo(user.getEmail());
+            message.setSubject("Expense Tracker password reset");
+            message.setText(
+                    "Hello " + user.getName() + ",\n\n"
+                    + "Use the following password reset token to reset your password:\n\n"
+                    + token
+                    + "\n\n"
+                    + "Submit this token with your new password to POST /api/auth/reset-password.\n"
+                    + "This token expires in 1 hour.");
 
-            log.error("Failed to send password reset email to {}", user.getEmail(), ex);
+            mailSender.send(message);
+
+            log.info(
+                    "Password reset email delivered to {}",
+                    user.getEmail()
+            );
+
+        } catch (MailException ex) {
+
+            log.error(
+                    "Failed to send password reset email to {}",
+                    user.getEmail(),
+                    ex
+            );
 
             throw new EmailDeliveryException(
                     "Failed to send password reset email",
-                    ex);
+                    ex
+            );
         }
+    }
+
+    private String normalizedBaseUrl() {
+        return baseUrl.endsWith("/")
+                ? baseUrl.substring(0, baseUrl.length() - 1)
+                : baseUrl;
     }
 }

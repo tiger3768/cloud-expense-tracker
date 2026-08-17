@@ -75,7 +75,6 @@ class ExpenseControllerTest {
         request.setType(ExpenseType.EXPENSE);
         request.setCategory(Category.FOOD);
         request.setExpenseDate(LocalDate.of(2026, 8, 1));
-        request.setVersion(0L);
 
         return request;
     }

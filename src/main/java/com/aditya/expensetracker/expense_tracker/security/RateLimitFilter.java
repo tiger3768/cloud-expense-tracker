@@ -54,13 +54,21 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
         String clientKey = resolveClientKey(request);
 
-        boolean isAuthEndpoint =
-                request.getRequestURI().startsWith(AUTH_PATH_PREFIX);
+        String requestUri = request.getRequestURI();
+        boolean isAuthEndpoint = requestUri.startsWith(AUTH_PATH_PREFIX);
+        boolean isEmailAction =
+                "/api/auth/forgot-password".equals(requestUri)
+                        || "/api/auth/resend-verification".equals(requestUri);
 
         try {
-            Bucket bucket = isAuthEndpoint
-                    ? rateLimitService.resolveAuthBucket(clientKey)
-                    : rateLimitService.resolveApiBucket(clientKey);
+            Bucket bucket;
+            if (isEmailAction) {
+                bucket = rateLimitService.resolveEmailActionBucket(clientKey);
+            } else if (isAuthEndpoint) {
+                bucket = rateLimitService.resolveAuthBucket(clientKey);
+            } else {
+                bucket = rateLimitService.resolveApiBucket(clientKey);
+            }
 
             ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
 
@@ -74,7 +82,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         "Rate limit exceeded for " + clientKey
                                 + " on " + request.getMethod() + " "
                                 + request.getRequestURI()
-                                + " (tier=" + (isAuthEndpoint ? "auth" : "api") + ")");
+                                + " (tier=" + (isEmailAction ? "email-action"
+                                : (isAuthEndpoint ? "auth" : "api")) + ")");
 
                 rejectWithTooManyRequests(response, probe);
                 return;

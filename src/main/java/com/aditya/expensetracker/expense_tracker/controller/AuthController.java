@@ -55,6 +55,19 @@ public class AuthController {
         return ResponseEntity.noContent().build();
     }
     
+    @Operation(summary = "Resend email verification")
+    @ApiResponses({
+        @ApiResponse(responseCode = "204", description = "Request accepted")
+    })
+    @PostMapping("/resend-verification")
+    public ResponseEntity<Void> resendVerificationEmail(
+            @Valid @RequestBody ForgotPasswordRequest request) {
+
+        authService.resendVerificationEmail(request);
+
+        return ResponseEntity.noContent().build();
+    }
+    
     @Operation(summary = "Login")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Login successful"),

@@ -1,34 +1,99 @@
 services:
+
   postgres:
     image: postgres:16
     container_name: expense-tracker-db
 
     environment:
-      POSTGRES_DB: ${DB_NAME}
-      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: expense_tracker
+      POSTGRES_USER: ${DB_USERNAME}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
-
-    ports:
-      - "5432:5432"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME} -d expense_tracker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
     restart: unless-stopped
+
 
   redis:
     image: redis:7-alpine
     container_name: expense-tracker-redis
 
-    ports:
-      - "6379:6379"
-
-    restart: unless-stopped
-
     command: redis-server --appendonly yes
 
     volumes:
       - redis-data:/data
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    restart: unless-stopped
+
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    container_name: expense-tracker-app
+
+    environment:
+      SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
+
+      DB_URL: jdbc:postgresql://postgres:5432/expense_tracker
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+
+      REDIS_HOST: redis
+
+      JWT_SECRET: ${JWT_SECRET}
+      ACCESS_TOKEN_EMS: ${ACCESS_TOKEN_EMS}
+      REFRESH_TOKEN_EDATE: ${REFRESH_TOKEN_EDATE}
+      VERIFICATION_TOKEN_EHR: ${VERIFICATION_TOKEN_EHR}
+      PASSWORD_RESET_TOKEN_EHR: ${PASSWORD_RESET_TOKEN_EHR}
+
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      APP_CONTACT_EMAIL: ${APP_CONTACT_EMAIL}
+
+      AWS_REGION: ${AWS_REGION}
+      AWS_BUCKET_NAME: ${AWS_BUCKET_NAME}
+      APP_BASE_URL: ${APP_BASE_URL}
+
+    ports:
+      - "8080:8080"
+
+    volumes:
+      - ${HOME}/.aws:/root/.aws:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --spider -q http://localhost:8081/actuator/health/readiness || exit 1"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+    restart: unless-stopped
+
 
 volumes:
   postgres_data:

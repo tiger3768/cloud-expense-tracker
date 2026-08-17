@@ -2,42 +2,63 @@ package com.aditya.expensetracker.expense_tracker.service;
 
 import java.time.Duration;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import io.github.bucket4j.Bucket;
 import io.github.bucket4j.BucketConfiguration;
 import io.github.bucket4j.distributed.proxy.ProxyManager;
-
 import lombok.RequiredArgsConstructor;
-
 
 @Service
 @RequiredArgsConstructor
 public class RateLimitService {
 
-    private static final int AUTH_CAPACITY = 5;
-    private static final Duration AUTH_PERIOD = Duration.ofMinutes(1);
-
-    private static final int API_CAPACITY = 100;
-    private static final Duration API_PERIOD = Duration.ofMinutes(1);
-
     private final ProxyManager<String> rateLimitProxyManager;
+
+    @Value("${app.rate-limit.auth.capacity}")
+    private int authCapacity;
+
+    @Value("${app.rate-limit.auth.period}")
+    private Duration authPeriod;
+
+    @Value("${app.rate-limit.email-action.capacity}")
+    private int emailActionCapacity;
+
+    @Value("${app.rate-limit.email-action.period}")
+    private Duration emailActionPeriod;
+
+    @Value("${app.rate-limit.api.capacity}")
+    private int apiCapacity;
+
+    @Value("${app.rate-limit.api.period}")
+    private Duration apiPeriod;
 
     public Bucket resolveAuthBucket(String clientKey) {
         return resolveBucket(
                 "rate-limit:auth:" + clientKey,
-                AUTH_CAPACITY,
-                AUTH_PERIOD);
+                authCapacity,
+                authPeriod);
+    }
+
+    public Bucket resolveEmailActionBucket(String clientKey) {
+        return resolveBucket(
+                "rate-limit:email-action:" + clientKey,
+                emailActionCapacity,
+                emailActionPeriod);
     }
 
     public Bucket resolveApiBucket(String clientKey) {
         return resolveBucket(
                 "rate-limit:api:" + clientKey,
-                API_CAPACITY,
-                API_PERIOD);
+                apiCapacity,
+                apiPeriod);
     }
 
-    private Bucket resolveBucket(String key, int capacity, Duration period) {
+    private Bucket resolveBucket(
+            String key,
+            int capacity,
+            Duration period) {
 
         BucketConfiguration configuration =
                 BucketConfiguration.builder()
@@ -46,6 +67,8 @@ public class RateLimitService {
                                 .refillGreedy(capacity, period))
                         .build();
 
-        return rateLimitProxyManager.getProxy(key, () -> configuration);
+        return rateLimitProxyManager.getProxy(
+                key,
+                () -> configuration);
     }
 }

@@ -5,6 +5,7 @@ import com.aditya.expensetracker.expense_tracker.dto.ValidationErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -155,6 +156,30 @@ public class GlobalExceptionHandler {
                 HttpStatus.BAD_REQUEST,
                 ex.getMessage()
         );
+    }
+    
+    @ExceptionHandler(OptimisticLockConflictException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLockConflict(
+            OptimisticLockConflictException ex) {
+    	
+    	log.warn("Optimistic locking conflict : {}", ex.getMessage());
+
+        return buildErrorResponse(
+                        HttpStatus.CONFLICT,
+                        ex.getMessage()
+                );
+    }
+    
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ErrorResponse> handleHttpMessageNotReadable(
+            HttpMessageNotReadableException ex) {
+
+        log.warn("Malformed or missing request body: {}", ex.getMessage());
+
+        return buildErrorResponse(
+                        HttpStatus.BAD_REQUEST,
+                        "Request body is missing or malformed"
+                        );
     }
 
     @ExceptionHandler(Exception.class)

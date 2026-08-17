@@ -4,6 +4,8 @@ import com.aditya.expensetracker.expense_tracker.dto.CreateExpenseRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseFilterRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseResponse;
 import com.aditya.expensetracker.expense_tracker.dto.PagedResponse;
+import com.aditya.expensetracker.expense_tracker.dto.UpdateExpenseRequest;
+import com.aditya.expensetracker.expense_tracker.exception.OptimisticLockConflictException;
 import com.aditya.expensetracker.expense_tracker.entity.Expense;
 import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.exception.ResourceNotFoundException;
@@ -180,7 +182,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     })
     public ExpenseResponse updateExpense(
             Long id,
-            CreateExpenseRequest request,
+            UpdateExpenseRequest request,
             MultipartFile receipt) {
 
         User currentUser = currentUserService.getCurrentUser();
@@ -189,6 +191,15 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .findByIdAndUser(id, currentUser)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
+
+        if (!request.getVersion().equals(expense.getVersion())) {
+            log.warn(
+                    "Optimistic locking conflict for expense {}: expected version {}, actual version {}",
+                    id,
+                    request.getVersion(),
+                    expense.getVersion());
+            throw new OptimisticLockConflictException();
+        }
 
         expenseMapper.updateExpenseFromRequest(request, expense);
 
@@ -203,7 +214,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             expense.setReceiptKey(receiptKey);
         }
 
-        Expense updatedExpense = expenseRepository.save(expense);
+        Expense updatedExpense = expenseRepository.saveAndFlush(expense);
 
         log.info(
                 "Expense {} updated by {}",

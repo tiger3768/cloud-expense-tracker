@@ -43,7 +43,7 @@ public class EmailVerificationTokenServiceImpl
     public EmailVerificationToken validateVerificationToken(String token) {
 
         EmailVerificationToken verificationToken =
-                verificationTokenRepository.findByToken(token)
+                verificationTokenRepository.findByTokenForUpdate(token)
                         .orElseThrow(() -> {
                             log.warn("Verification attempted with unknown token");
                             return new InvalidVerificationTokenException(

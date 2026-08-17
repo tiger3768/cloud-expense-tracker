@@ -4,6 +4,7 @@ import com.aditya.expensetracker.expense_tracker.dto.CreateExpenseRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseFilterRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ExpenseResponse;
 import com.aditya.expensetracker.expense_tracker.dto.PagedResponse;
+import com.aditya.expensetracker.expense_tracker.dto.UpdateExpenseRequest;
 import com.aditya.expensetracker.expense_tracker.service.ExpenseService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -62,7 +63,7 @@ public class ExpenseController {
     @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ExpenseResponse updateExpense(
             @PathVariable Long id,
-            @Valid @RequestPart("expense") CreateExpenseRequest request,
+            @Valid @RequestPart("expense") UpdateExpenseRequest request,
             @RequestPart(value = "receipt", required = false) MultipartFile receipt) {
 
         return expenseService.updateExpense(id, request, receipt);
