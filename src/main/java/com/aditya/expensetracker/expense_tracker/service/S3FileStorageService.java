@@ -19,6 +19,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -125,10 +126,40 @@ public class S3FileStorageService implements FileStorageService {
         return fileName.substring(fileName.lastIndexOf("."));
     }
 
+    private static final long MAX_FILE_SIZE_MB = 10;
+    private static final long MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024;
+
+    private static final Set<String> ALLOWED_CONTENT_TYPES = Set.of(
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "application/pdf"
+    );
+
     private void validateFile(MultipartFile file) {
 
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File must not be empty.");
+        }
+
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException(
+                    "File size must not exceed " + MAX_FILE_SIZE_MB + " MB.");
+        }
+
+        String contentType = file.getContentType();
+
+        if (contentType == null ||
+                !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
+            throw new IllegalArgumentException(
+                    "Unsupported file type. Allowed types: JPEG, PNG, WEBP, PDF.");
+        }
+
+        String originalFilename = file.getOriginalFilename();
+
+        if (originalFilename == null || originalFilename.isBlank()) {
+            throw new IllegalArgumentException(
+                    "File name must not be blank.");
         }
     }
 }

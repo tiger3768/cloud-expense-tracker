@@ -172,13 +172,13 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Transactional
     @Override
     @Caching(evict = {
-    	    @CacheEvict(value = "analytics-dashboard", allEntries = true),
-    	    @CacheEvict(value = "analytics-summary", allEntries = true),
-    	    @CacheEvict(value = "analytics-categories", allEntries = true),
-    	    @CacheEvict(value = "analytics-monthly", allEntries = true),
-    	    @CacheEvict(value = "analytics-trend", allEntries = true),
-    	    @CacheEvict(value = "analytics-recent", allEntries = true),
-    	    @CacheEvict(value = "expenses", key = "#id")
+            @CacheEvict(value = "analytics-dashboard", allEntries = true),
+            @CacheEvict(value = "analytics-summary", allEntries = true),
+            @CacheEvict(value = "analytics-categories", allEntries = true),
+            @CacheEvict(value = "analytics-monthly", allEntries = true),
+            @CacheEvict(value = "analytics-trend", allEntries = true),
+            @CacheEvict(value = "analytics-recent", allEntries = true),
+            @CacheEvict(value = "expenses", key = "#id")
     })
     public ExpenseResponse updateExpense(
             Long id,
@@ -193,37 +193,48 @@ public class ExpenseServiceImpl implements ExpenseService {
                         new ResourceNotFoundException("Expense not found"));
 
         if (!request.getVersion().equals(expense.getVersion())) {
+
             log.warn(
                     "Optimistic locking conflict for expense {}: expected version {}, actual version {}",
                     id,
                     request.getVersion(),
                     expense.getVersion());
+
             throw new OptimisticLockConflictException();
         }
 
         expenseMapper.updateExpenseFromRequest(request, expense);
 
+        String oldReceiptKey = expense.getReceiptKey();
+
         if (receipt != null && !receipt.isEmpty()) {
 
-            if (expense.getReceiptKey() != null) {
-                fileStorageService.deleteFile(expense.getReceiptKey());
-            }
+            String newReceiptKey =
+                    fileStorageService.uploadFile(receipt);
 
-            String receiptKey = fileStorageService.uploadFile(receipt);
-
-            expense.setReceiptKey(receiptKey);
+            expense.setReceiptKey(newReceiptKey);
         }
 
-        Expense updatedExpense = expenseRepository.saveAndFlush(expense);
+        Expense updatedExpense =
+                expenseRepository.saveAndFlush(expense);
+
+        if (receipt != null
+                && !receipt.isEmpty()
+                && oldReceiptKey != null) {
+
+            fileStorageService.deleteFile(oldReceiptKey);
+        }
 
         log.info(
                 "Expense {} updated by {}",
                 updatedExpense.getId(),
                 currentUser.getEmail());
 
-        ExpenseResponse response = expenseMapper.toResponse(updatedExpense);
+        ExpenseResponse response =
+                expenseMapper.toResponse(updatedExpense);
 
         if (updatedExpense.getReceiptKey() != null) {
+
             response.setReceiptUrl(
                     fileStorageService.generatePresignedUrl(
                             updatedExpense.getReceiptKey()));
