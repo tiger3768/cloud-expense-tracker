@@ -1,5 +1,7 @@
 # Cloud Expense Tracker
 
+**Try it out:** [http://43.204.112.246:8080](http://43.204.112.246:8080) &nbsp;|&nbsp; **API docs:** [Swagger UI](http://43.204.112.246:8080/swagger-ui/index.html)
+
 A production-oriented backend REST API for tracking personal expenses, built with Spring Boot and deployed to AWS using Docker Compose.
 
 ## Tech Stack
@@ -15,6 +17,7 @@ A production-oriented backend REST API for tracking personal expenses, built wit
 - Redis
 - Amazon S3
 - Spring Mail
+- springdoc-openapi (Swagger UI)
 - Docker
 - Docker Compose
 - GitHub Actions
@@ -100,6 +103,40 @@ A production-oriented backend REST API for tracking personal expenses, built wit
 - Application metrics
 - Prometheus endpoint
 - Structured application logging
+
+### API Documentation
+
+- OpenAPI 3 specification generated via springdoc-openapi
+- Interactive Swagger UI for exploring and testing endpoints directly in the browser
+- Request/response schemas documented for every endpoint
+
+## API Documentation
+
+Interactive, browsable API docs are available via Swagger UI, generated automatically from the codebase with springdoc-openapi — no separate deployment step or manually-maintained docs required.
+
+- Swagger UI: `/swagger-ui/index.html`
+- Raw OpenAPI 3 spec (JSON): `/v3/api-docs`
+
+Live deployment:
+
+- Swagger UI: [http://43.204.112.246:8080/swagger-ui/index.html](http://43.204.112.246:8080/swagger-ui/index.html)
+- OpenAPI spec: [http://43.204.112.246:8080/v3/api-docs](http://43.204.112.246:8080/v3/api-docs)
+
+Locally (after starting the stack, see [Local Development](#local-development)):
+
+- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
+- OpenAPI spec: `http://localhost:8080/v3/api-docs`
+
+Both paths are publicly reachable without a token — only the underlying API endpoints require authentication, so anyone can browse available endpoints and schemas before signing up.
+
+### Authorizing requests in Swagger UI
+
+Most endpoints require a bearer JWT. To call them from the Swagger UI:
+
+1. Call `POST /api/auth/register`, then `POST /api/auth/login` to obtain an access token.
+2. Click **Authorize** (top right of the Swagger UI page).
+3. Paste the access token into the **Bearer Authentication** field (just the token — Swagger UI adds the `Bearer ` prefix for you).
+4. All subsequent "Try it out" requests will include the token until it expires or you log out.
 
 ## Architecture
 
@@ -379,6 +416,8 @@ Check application readiness:
 docker exec expense-tracker-app \
   wget -qO- http://localhost:8081/actuator/health/readiness
 ```
+
+Once running, explore the API via Swagger UI at `http://localhost:8080/swagger-ui/index.html`.
 
 ## AWS Deployment
 
