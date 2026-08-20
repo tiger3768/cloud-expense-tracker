@@ -22,7 +22,7 @@ public class EmailServiceImpl implements EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
-    @Value("${app.base-url}")
+    @Value("${app.frontend-url}")
     private String baseUrl;
 
     @Override
@@ -30,7 +30,7 @@ public class EmailServiceImpl implements EmailService {
         try {
 
             String verificationLink =
-                    normalizedBaseUrl() + "/api/auth/verify?token=" + token;
+                    normalizedBaseUrl() + "/verify-email?token=" + token;
 
             SimpleMailMessage message = new SimpleMailMessage();
 
@@ -69,6 +69,9 @@ public class EmailServiceImpl implements EmailService {
     public void sendPasswordResetEmail(User user, String token) {
         try {
 
+            String resetLink =
+                    normalizedBaseUrl() + "/reset-password?token=" + token;
+
             SimpleMailMessage message = new SimpleMailMessage();
 
             message.setFrom(fromEmail);
@@ -76,11 +79,9 @@ public class EmailServiceImpl implements EmailService {
             message.setSubject("Expense Tracker password reset");
             message.setText(
                     "Hello " + user.getName() + ",\n\n"
-                    + "Use the following password reset token to reset your password:\n\n"
-                    + token
-                    + "\n\n"
-                    + "Submit this token with your new password to POST /api/auth/reset-password.\n"
-                    + "This token expires in 1 hour.");
+                    + "Reset your password using the link below:\n\n"
+                    + resetLink
+                    + "\n\nThis link expires in 1 hour.");
 
             mailSender.send(message);
 

@@ -15,7 +15,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -46,6 +48,8 @@ public class User implements UserDetails{
 
     @Column(unique = true, nullable = false)
     @NotNull(message = "Email is required")
+    @Email(message = "Invalid email address")
+    @Size(max = 255, message = "Email cannot exceed 255 characters")
     private String email;
 
     @Column(nullable = false)

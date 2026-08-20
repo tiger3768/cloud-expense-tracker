@@ -34,6 +34,18 @@ public class RateLimitService {
     @Value("${app.rate-limit.api.period}")
     private Duration apiPeriod;
 
+    @Value("${app.rate-limit.upload.capacity}")
+    private int uploadCapacity;
+
+    @Value("${app.rate-limit.upload.period}")
+    private Duration uploadPeriod;
+
+    @Value("${app.rate-limit.analytics.capacity}")
+    private int analyticsCapacity;
+
+    @Value("${app.rate-limit.analytics.period}")
+    private Duration analyticsPeriod;
+
     public Bucket resolveAuthBucket(String clientKey) {
         return resolveBucket(
                 "rate-limit:auth:" + clientKey,
@@ -53,6 +65,20 @@ public class RateLimitService {
                 "rate-limit:api:" + clientKey,
                 apiCapacity,
                 apiPeriod);
+    }
+
+    public Bucket resolveUploadBucket(String clientKey) {
+        return resolveBucket(
+                "rate-limit:upload:" + clientKey,
+                uploadCapacity,
+                uploadPeriod);
+    }
+
+    public Bucket resolveAnalyticsBucket(String clientKey) {
+        return resolveBucket(
+                "rate-limit:analytics:" + clientKey,
+                analyticsCapacity,
+                analyticsPeriod);
     }
 
     private Bucket resolveBucket(

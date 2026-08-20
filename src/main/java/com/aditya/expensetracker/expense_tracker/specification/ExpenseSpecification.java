@@ -2,6 +2,7 @@ package com.aditya.expensetracker.expense_tracker.specification;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 import org.springframework.data.jpa.domain.Specification;
 
@@ -17,10 +18,10 @@ public class ExpenseSpecification {
                 cb.equal(root.get("user"), user);
     }
     
-    public static Specification<Expense> hasCategory(Category category) {
+    public static Specification<Expense> hasCategories(List<Category> categories) {
 
         return (root, query, cb) ->
-                cb.equal(root.get("category"), category);
+                root.get("category").in(categories);
     }
     
     public static Specification<Expense> minAmount(BigDecimal amount) {

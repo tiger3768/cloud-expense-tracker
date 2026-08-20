@@ -54,6 +54,7 @@ class AuthControllerTest {
         request.setName("New User");
         request.setEmail("new@example.com");
         request.setPassword("password123");
+        request.setConfirmPassword("password123");
 
         mockMvc.perform(
                 post("/api/auth/register")
@@ -73,6 +74,7 @@ class AuthControllerTest {
         request.setName("New User");
         request.setEmail("taken@example.com");
         request.setPassword("password123");
+        request.setConfirmPassword("password123");
 
         mockMvc.perform(
                 post("/api/auth/register")
@@ -124,4 +126,24 @@ class AuthControllerTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error").value("Invalid email or password"));
     }
+
+    @Test
+    void register_passwordsDoNotMatch_returns400() throws Exception {
+
+        RegisterRequest request = new RegisterRequest();
+        request.setName("New User");
+        request.setEmail("new@example.com");
+        request.setPassword("password123");
+        request.setConfirmPassword("different123");
+
+        mockMvc.perform(
+                post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsBytes(request))
+        )
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors.confirmPassword")
+                        .value("Passwords do not match"));
+    }
+
 }

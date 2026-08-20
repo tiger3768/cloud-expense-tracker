@@ -93,9 +93,9 @@ public class ExpenseServiceImpl implements ExpenseService {
         specification = specification.and(
                 ExpenseSpecification.belongsToUser(currentUser));
 
-        if (filter.getCategory() != null) {
+        if (filter.getCategory() != null && !filter.getCategory().isEmpty()) {
             specification = specification.and(
-                    ExpenseSpecification.hasCategory(filter.getCategory()));
+                    ExpenseSpecification.hasCategories(filter.getCategory()));
         }
 
         if (filter.getMinAmount() != null) {

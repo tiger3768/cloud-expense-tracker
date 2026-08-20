@@ -43,6 +43,21 @@ public class GlobalExceptionHandler {
                                 error.getField(),
                                 error.getDefaultMessage()));
 
+        ex.getBindingResult()
+                .getGlobalErrors()
+                .forEach(error -> {
+                    String field = switch (error.getObjectName()) {
+                        case "expenseFilterRequest" ->
+                                error.getDefaultMessage() != null && error.getDefaultMessage().contains("amount")
+                                        ? "maxAmount" : "endDate";
+                        case "registerRequest" -> "confirmPassword";
+                        default -> null;
+                    };
+                    if (field != null && !errors.containsKey(field)) {
+                        errors.put(field, error.getDefaultMessage());
+                    }
+                });
+
         log.warn("Validation failed for fields: {}", errors.keySet());
 
         ValidationErrorResponse response =

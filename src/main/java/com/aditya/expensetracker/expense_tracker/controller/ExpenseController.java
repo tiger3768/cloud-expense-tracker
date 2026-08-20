@@ -46,7 +46,7 @@ public class ExpenseController {
     @Operation(summary = "Get all expenses")
     @GetMapping
     public PagedResponse<ExpenseResponse> getMyExpenses(
-            @ModelAttribute ExpenseFilterRequest filter,
+            @Valid @ModelAttribute ExpenseFilterRequest filter,
             Pageable pageable) {
 
         return expenseService.getMyExpenses(filter, pageable);

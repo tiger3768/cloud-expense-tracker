@@ -1,5 +1,6 @@
 package com.aditya.expensetracker.expense_tracker.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -21,4 +22,14 @@ public class RegisterRequest {
     @Size(min = 8, max = 100,
             message = "Password must be between 8 and 100 characters")
     private String password;
+
+    @NotBlank(message = "Password confirmation is required")
+    private String confirmPassword;
+
+    @AssertTrue(message = "Passwords do not match")
+    public boolean isPasswordMatching() {
+        return password != null
+                && confirmPassword != null
+                && password.equals(confirmPassword);
+    }
 }

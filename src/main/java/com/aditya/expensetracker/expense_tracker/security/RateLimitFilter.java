@@ -60,14 +60,31 @@ public class RateLimitFilter extends OncePerRequestFilter {
                 "/api/auth/forgot-password".equals(requestUri)
                         || "/api/auth/resend-verification".equals(requestUri);
 
+        boolean isReceiptUpload =
+                isMultipartExpenseRequest(request);
+
+        boolean isAnalyticsEndpoint =
+                requestUri.startsWith("/api/analytics/");
+
+        String tier;
+
         try {
             Bucket bucket;
             if (isEmailAction) {
                 bucket = rateLimitService.resolveEmailActionBucket(clientKey);
+                tier = "email-action";
+            } else if (isReceiptUpload) {
+                bucket = rateLimitService.resolveUploadBucket(clientKey);
+                tier = "upload";
+            } else if (isAnalyticsEndpoint) {
+                bucket = rateLimitService.resolveAnalyticsBucket(clientKey);
+                tier = "analytics";
             } else if (isAuthEndpoint) {
                 bucket = rateLimitService.resolveAuthBucket(clientKey);
+                tier = "auth";
             } else {
                 bucket = rateLimitService.resolveApiBucket(clientKey);
+                tier = "api";
             }
 
             ConsumptionProbe probe = bucket.tryConsumeAndReturnRemaining(1);
@@ -82,8 +99,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         "Rate limit exceeded for " + clientKey
                                 + " on " + request.getMethod() + " "
                                 + request.getRequestURI()
-                                + " (tier=" + (isEmailAction ? "email-action"
-                                : (isAuthEndpoint ? "auth" : "api")) + ")");
+                                + " (tier=" + tier + ")");
 
                 rejectWithTooManyRequests(response, probe);
                 return;
@@ -115,6 +131,22 @@ public class RateLimitFilter extends OncePerRequestFilter {
                         + retryAfterSeconds + " seconds.\"}");
     }
 
+    private boolean isMultipartExpenseRequest(HttpServletRequest request) {
+
+        String requestUri = request.getRequestURI();
+        String method = request.getMethod();
+        String contentType = request.getContentType();
+
+        boolean isExpenseWrite =
+                ("POST".equalsIgnoreCase(method)
+                        && "/api/expenses".equals(requestUri))
+                || ("PUT".equalsIgnoreCase(method)
+                        && requestUri.matches("/api/expenses/\\d+"));
+
+        return isExpenseWrite
+                && contentType != null
+                && contentType.toLowerCase().startsWith("multipart/form-data");
+    }
 
     private String resolveClientKey(HttpServletRequest request) {
 
