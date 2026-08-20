@@ -1,142 +1,278 @@
 # Cloud Expense Tracker
 
-**Try it out:** [http://43.204.112.246:8080](http://43.204.112.246:8080) &nbsp;|&nbsp; **API docs:** [Swagger UI](http://43.204.112.246:8080/swagger-ui/index.html)
+**Frontend:** https://dg7iiaitu5wcv.cloudfront.net  
+**API Docs:** https://d29e2avpnvyf5w.cloudfront.net/swagger-ui/index.html  
+**Backend API:** https://d29e2avpnvyf5w.cloudfront.net
 
-A production-oriented backend REST API for tracking personal expenses, built with Spring Boot and deployed to AWS using Docker Compose.
+A production-oriented personal finance REST API built with Spring Boot 3.5 and Java 21. The application provides authenticated expense management, email verification, password recovery, refresh-token based authentication, receipt storage in Amazon S3, Redis caching and distributed rate limiting, analytics, observability, automated tests, and Docker-based deployment.
 
 ## Tech Stack
 
 - Java 21
-- Spring Boot
+- Spring Boot 3.5
 - Spring Security
-- JWT Authentication
-- Spring Data JPA
-- Hibernate
+- JWT authentication
+- Refresh tokens with persistence and revocation
+- Spring Data JPA / Hibernate
 - PostgreSQL
 - Flyway
 - Redis
+- Bucket4j + Lettuce for distributed rate limiting
 - Amazon S3
-- Spring Mail
-- springdoc-openapi (Swagger UI)
+- AWS SDK for Java
+- Spring Mail with Gmail SMTP
+- springdoc-openapi / Swagger UI
 - Docker
 - Docker Compose
 - GitHub Actions
-- AWS EC2
-- AWS IAM
-- JUnit
+- Spring Boot Actuator
+- Micrometer / Prometheus
+- JUnit 5
 - Mockito
 - MockMvc
 - Testcontainers
+- MapStruct
+- Lombok
 
 ## Features
 
-### Authentication & Security
+### Authentication & Account Security
 
 - User registration
-- Email verification
-- User login
-- JWT access tokens
-- Refresh tokens
-- Refresh token revocation
-- Password reset
+- Email format validation
+- Password confirmation during registration
+- Email verification with expiring verification tokens
+- Login with JWT access tokens
+- Persistent refresh tokens
+- Refresh-token rotation
+- Refresh-token revocation
+- Logout
+- Password reset with expiring reset tokens
+- Password reset revokes all existing refresh tokens for the user
+- Disabled/unverified-user enforcement during authentication
 - BCrypt password hashing
-- Disabled-user enforcement
-- Rate limiting
 - Global exception handling
-- Request ID / correlation ID logging
+- Correlation/request ID logging
+
+Recovery-token storage is constrained to one active verification token and one active password-reset token per user through Flyway migration `V13`.
 
 ### Expense Management
 
 - Create expenses
-- Retrieve expenses
+- Retrieve a single expense
+- Retrieve the authenticated user's expenses
 - Update expenses
 - Delete expenses
-- Expense filtering
+- User-specific data access
 - Pagination
-- Optimistic locking
-- User-specific expense access
+- Sorting through Spring Data `Pageable`
+- Filtering by:
+  - Multiple categories
+  - Minimum amount
+  - Maximum amount
+  - Start date
+  - End date
+- Validation of amount ranges and date ranges
+- Future expense dates are rejected
+- Optimistic locking using an expense version
+- Soft deletion of expenses
+- Auditing fields
+- Optional receipt attachment
 
 ### Receipt Storage
 
-- Receipt uploads
+- Receipt uploads through multipart requests
 - Amazon S3 object storage
-- Presigned URLs for receipt access
-- Receipt replacement
 - Private S3 objects
+- UUID-based receipt object keys
+- Presigned URLs for temporary receipt access
+- Supported receipt types:
+  - JPEG
+  - PNG
+  - WEBP
+  - PDF
+- Maximum receipt size: 10 MB
+- Receipt replacement uploads the new object before deleting the old object
+- Storage validation for file size, content type, and filename
 
 ### Analytics
 
-- Analytics dashboard
-- Expense summary
-- Category analytics
-- Monthly analytics
+The analytics API provides:
+
+- Complete analytics dashboard
+- Income/expense summary
+- Category summary
+- Monthly summary
 - Spending trends
-- Recent expenses
+- Recent transactions
 
-### Caching
+Analytics can be filtered by:
 
-- Redis
-- Spring Cache
-- Analytics caching
-- Expense caching
-- Cache invalidation after expense changes
+- From date
+- To date
+- Category
+- Transaction type
+- Recent-result limit
 
-### Database
+Analytics requests are validated and the recent-transactions limit is bounded to protect the application from excessively large requests.
 
-- PostgreSQL
-- Spring Data JPA
-- Hibernate
-- Flyway database migrations
+### Redis Caching
+
+Redis is used for:
+
+- Expense lookup caching
+- Analytics dashboard caching
+- Analytics summary caching
+- Category analytics caching
+- Monthly analytics caching
+- Spending trend caching
+- Recent expense caching
+
+Different analytics caches use different TTLs based on how frequently the data is expected to change.
+
+Expense mutations invalidate the relevant expense and analytics caches.
+
+### Rate Limiting
+
+Rate limiting uses Bucket4j backed by Redis through Lettuce, allowing limits to be shared across application instances.
+
+Production limits include:
+
+| Tier | Limit | Purpose |
+|---|---:|---|
+| Authentication | 5 requests/minute/IP | Login and other authentication endpoints |
+| Email actions | 3 requests/hour/IP | Password reset and verification-email requests |
+| Receipt/multipart writes | 10 requests/minute/IP | Expense create/update requests containing multipart data |
+| Analytics | 30 requests/minute/IP | Analytics endpoints |
+| General API | 100 requests/minute/IP | Other API requests |
+
+When a limit is exceeded, the API returns HTTP `429 Too Many Requests` with a `Retry-After` header.
+
+The rate limiter also returns `X-RateLimit-Remaining`.
+
+Trusted proxy configuration is available for deployments where the application needs to resolve the original client IP from `X-Forwarded-For`.
 
 ### Email
 
-- Email verification
-- Password reset emails
+The application uses Spring Mail with Gmail SMTP:
+
+```text
+smtp.gmail.com:587
+```
+
+Email flows include:
+
+- Registration verification email
+- Password reset email
 - Asynchronous email processing
-- SMTP integration
+- Transactional event listeners using `AFTER_COMMIT`
 
-### Observability
+Email links are generated from `APP_FRONTEND_URL`, so verification and password-reset links can point to the deployed frontend.
 
-- Spring Boot Actuator
-- Liveness checks
-- Readiness checks
-- Application metrics
-- Prometheus endpoint
-- Structured application logging
+> The current email implementation uses asynchronous Spring events and `@Async`; it is not a durable message-queue/outbox implementation.
 
-### API Documentation
+## API Overview
 
-- OpenAPI 3 specification generated via springdoc-openapi
-- Interactive Swagger UI for exploring and testing endpoints directly in the browser
-- Request/response schemas documented for every endpoint
+Base path:
+
+```text
+/api
+```
+
+### Authentication
+
+```text
+POST /api/auth/register
+GET  /api/auth/verify?token={token}
+POST /api/auth/resend-verification
+POST /api/auth/login
+POST /api/auth/refresh
+POST /api/auth/forgot-password
+POST /api/auth/reset-password
+POST /api/auth/logout
+```
+
+Registration requires a password confirmation.
+
+The login response contains:
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "..."
+}
+```
+
+Refresh-token rotation is used when `/api/auth/refresh` is called: the old refresh token is revoked and a new refresh token is issued.
+
+Password reset uses a token supplied in the reset request. Completing a password reset revokes all refresh tokens belonging to that user.
+
+### Expenses
+
+```text
+POST   /api/expenses
+GET    /api/expenses
+GET    /api/expenses/{id}
+PUT    /api/expenses/{id}
+DELETE /api/expenses/{id}
+```
+
+Create and update expense endpoints use `multipart/form-data` because an optional receipt can be included.
+
+Expense list filtering supports multiple category values together with amount and date filters.
+
+Pagination is supported through Spring Data `Pageable`, with a configured default page size of 20 and maximum page size of 100.
+
+### Analytics
+
+```text
+GET /api/analytics/dashboard
+GET /api/analytics/summary
+GET /api/analytics/categories
+GET /api/analytics/monthly
+GET /api/analytics/trend
+GET /api/analytics/recent
+```
+
+Common query parameters include:
+
+```text
+from
+to
+category
+type
+limit
+```
+
+The authenticated user is used to scope analytics results.
 
 ## API Documentation
 
-Interactive, browsable API docs are available via Swagger UI, generated automatically from the codebase with springdoc-openapi — no separate deployment step or manually-maintained docs required.
+OpenAPI documentation is generated automatically with springdoc-openapi.
 
-- Swagger UI: `/swagger-ui/index.html`
-- Raw OpenAPI 3 spec (JSON): `/v3/api-docs`
+Swagger UI:
 
-Live deployment:
+```text
+/swagger-ui/index.html
+```
 
-- Swagger UI: [http://43.204.112.246:8080/swagger-ui/index.html](http://43.204.112.246:8080/swagger-ui/index.html)
-- OpenAPI spec: [http://43.204.112.246:8080/v3/api-docs](http://43.204.112.246:8080/v3/api-docs)
+OpenAPI JSON:
 
-Locally (after starting the stack, see [Local Development](#local-development)):
+```text
+/v3/api-docs
+```
 
-- Swagger UI: `http://localhost:8080/swagger-ui/index.html`
-- OpenAPI spec: `http://localhost:8080/v3/api-docs`
+The OpenAPI configuration exposes a Bearer JWT security scheme for authenticated endpoints.
 
-Both paths are publicly reachable without a token — only the underlying API endpoints require authentication, so anyone can browse available endpoints and schemas before signing up.
+### Authorizing Swagger requests
 
-### Authorizing requests in Swagger UI
-
-Most endpoints require a bearer JWT. To call them from the Swagger UI:
-
-1. Call `POST /api/auth/register`, then `POST /api/auth/login` to obtain an access token.
-2. Click **Authorize** (top right of the Swagger UI page).
-3. Paste the access token into the **Bearer Authentication** field (just the token — Swagger UI adds the `Bearer ` prefix for you).
-4. All subsequent "Try it out" requests will include the token until it expires or you log out.
+1. Register an account.
+2. Verify the account email.
+3. Login through `POST /api/auth/login`.
+4. Copy the returned access token.
+5. Click **Authorize** in Swagger UI.
+6. Paste the token into the Bearer Authentication field.
+7. Use the authenticated endpoints.
 
 ## Architecture
 
@@ -145,44 +281,53 @@ Most endpoints require a bearer JWT. To call them from the Swagger UI:
                             |
                             v
                     +---------------+
-                    |    AWS EC2    |
-                    |               |
-                    | Docker Compose|
+                    |    Spring     |
+                    |     Boot      |
                     +-------+-------+
                             |
-             +--------------+--------------+
-             |              |              |
-             v              v              v
-       Spring Boot     PostgreSQL       Redis
-             |
-             +--------------------+
-             |                    |
-             v                    v
-          Amazon S3             SMTP
-        Receipt Storage          Email
+              +-------------+-------------+
+              |             |             |
+              v             v             v
+         PostgreSQL       Redis          S3
+          Database       Cache &       Receipts
+                         Rate Limit
+              |
+              v
+        Flyway Migrations
+
+Spring Boot
+    |
+    +---- Spring Security / JWT
+    |
+    +---- Expense & Analytics Services
+    |
+    +---- Gmail SMTP
+    |
+    +---- AWS S3
 ```
 
-### AWS Architecture
+### AWS Deployment
+
+The backend is containerized and can be deployed on Amazon EC2 using Docker Compose.
+
+The application uses an AWS IAM role for S3 access through the AWS SDK rather than requiring long-lived AWS credentials inside the application.
 
 ```text
-                         Internet
-                            |
-                            v
-                    +---------------+
-                    |      EC2      |
-                    |               |
-                    | Spring Boot   |
-                    | PostgreSQL    |
-                    | Redis         |
-                    +-------+-------+
-                            |
-                     IAM Instance Role
-                            |
-                            v
-                           S3
+EC2
+ |
+ +-- Spring Boot container
+ |
+ +-- PostgreSQL container
+ |
+ +-- Redis container
+ |
+ +-- IAM instance role
+          |
+          v
+      Amazon S3
 ```
 
-The EC2 instance accesses Amazon S3 through an IAM role. Long-lived AWS access keys are not required inside the application container.
+The application can also be placed behind an HTTPS-capable reverse proxy/CDN/load-balancing layer without changing the Spring Boot application itself.
 
 ## Authentication Flow
 
@@ -190,23 +335,160 @@ The EC2 instance accesses Amazon S3 through an IAM role. Long-lived AWS access k
 Register
    |
    v
-Email Verification
+Account created as disabled
+   |
+   v
+Verification email
+   |
+   v
+Email verified
+   |
+   v
+Account enabled
    |
    v
 Login
    |
-   v
-Access Token + Refresh Token
+   +----> Access Token
    |
-   v
-Authenticated API Requests
+   +----> Refresh Token
+             |
+             v
+       Persisted in database
 ```
 
-JWT authentication validates the token and the current user account status before creating the Spring Security authentication context.
+Authenticated requests use the access JWT.
+
+When the access token needs to be renewed:
+
+```text
+Refresh Token
+      |
+      v
+POST /api/auth/refresh
+      |
+      v
+Validate old token
+      |
+      v
+Revoke old token
+      |
+      +----> Issue new access token
+      |
+      +----> Issue new refresh token
+```
+
+Logging out revokes the supplied refresh token.
+
+Password reset revokes all refresh tokens for the affected user.
+
+## Email Verification Flow
+
+```text
+Registration
+     |
+     v
+User disabled
+     |
+     v
+UserRegisteredEvent
+     |
+     v
+AFTER_COMMIT + @Async
+     |
+     v
+Verification token created
+     |
+     v
+Gmail SMTP
+     |
+     v
+Verification link
+     |
+     v
+GET /api/auth/verify?token=...
+     |
+     v
+User enabled
+```
+
+Verification and password-reset tokens are persisted in PostgreSQL and expire after their configured lifetime.
+
+## Password Reset Flow
+
+```text
+POST /api/auth/forgot-password
+          |
+          v
+Password reset event
+          |
+          v
+Existing reset token removed
+          |
+          v
+New reset token created
+          |
+          v
+Email sent asynchronously
+          |
+          v
+Frontend reset page receives token
+          |
+          v
+POST /api/auth/reset-password
+          |
+          v
+Password changed
+          |
+          v
+All user's refresh tokens revoked
+```
+
+Only the latest recovery token is retained for each user.
+
+## Receipt Upload Flow
+
+```text
+Client
+  |
+  | multipart/form-data
+  v
+Spring Boot
+  |
+  +--> Validate size/type/name
+  |
+  v
+Amazon S3
+  |
+  v
+Receipt object key stored on Expense
+  |
+  v
+Presigned URL generated
+  |
+  v
+Client
+```
+
+When replacing an existing receipt:
+
+```text
+Upload new receipt
+       |
+       v
+Update database
+       |
+       v
+Delete old S3 object
+```
+
+This ordering avoids deleting the only valid receipt before a replacement upload succeeds.
 
 ## Optimistic Locking
 
-Expenses use optimistic locking to prevent lost updates.
+Expenses use JPA optimistic locking through a `version` field.
+
+Example:
 
 ```text
 Client A reads expense
@@ -218,119 +500,104 @@ version = 5
 Client A updates
 version = 6
 
-Client B attempts update with version = 5
+Client B updates using version = 5
         |
         v
-Optimistic Lock Conflict
+OptimisticLockConflictException
 ```
 
-A stale update is rejected instead of silently overwriting a newer update.
+This prevents a stale client from silently overwriting a newer update.
 
-## Receipt Upload Flow
+## Soft Delete and Auditing
+
+Expenses use Hibernate soft deletion:
 
 ```text
-Client
-   |
-   v
-Spring Boot
-   |
-   v
-Amazon S3
-   |
-   v
-S3 Object Key stored with Expense
-   |
-   v
-Presigned URL returned by API
+@SoftDelete
 ```
 
-When replacing a receipt, the new receipt is uploaded before the old receipt is deleted, to avoid losing the existing receipt if the new upload fails.
+Deleted expenses are therefore excluded from normal queries rather than immediately removed from the database.
 
-## Redis Caching
+Expenses also inherit auditing fields from `BaseAuditableEntity`.
 
-Redis is used through Spring Cache for frequently accessed data such as:
+## Database & Migrations
 
-- Expense retrieval
-- Analytics dashboard
-- Analytics summary
-- Category analytics
-- Monthly analytics
-- Spending trends
-- Recent expenses
+PostgreSQL is the primary relational database.
 
-Relevant caches are evicted when expense data changes.
-
-## Rate Limiting
-
-Rate limiting is applied to protect sensitive and high-traffic endpoints, including authentication and email-related operations.
-
-This helps reduce:
-
-- Brute-force authentication attempts
-- Repeated password reset requests
-- Verification email abuse
-- Excessive API requests
-
-## Database Migrations
-
-Flyway manages database schema changes through versioned migration scripts.
-
-Example:
+Flyway manages schema evolution through versioned migrations:
 
 ```text
-V1__...
-V2__...
-V3__...
+V1__Create_users_table.sql
+V2__Create_expenses_table.sql
+V3__Create_refresh_tokens_table.sql
+...
+V13__Enforce_single_recovery_token_per_user.sql
 ```
 
-Production schema evolution is therefore managed explicitly, rather than relying on Hibernate's automatic schema generation.
+The migrations cover:
+
+- Users
+- Expenses
+- Refresh tokens
+- Account enablement
+- Email verification tokens
+- Password reset tokens
+- Expense type
+- Analytics indexes
+- Auditing columns
+- Optimistic-lock versioning
+- Soft deletion
+- Single active recovery token constraints
+
+Production schema changes should be introduced through new Flyway migrations rather than relying on Hibernate to modify the production schema.
 
 ## Observability
 
-Spring Boot Actuator provides:
-
-- Health checks
-- Liveness state
-- Readiness state
-- Metrics
-- Prometheus endpoint
-
-The application uses:
+Spring Boot Actuator is exposed on a separate management port:
 
 ```text
-8080 - REST API
-8081 - Actuator / management
+8081
 ```
 
-Port `8081` is kept internal and is not exposed publicly by Docker Compose.
+The application exposes:
 
-Example readiness check:
+- Health
+- Liveness
+- Readiness
+- Metrics
+- Prometheus
+
+The readiness health group checks:
+
+```text
+readinessState
+database
+Redis
+```
+
+The application also contains an S3 health indicator that verifies access to the configured bucket.
+
+Example:
 
 ```bash
 docker exec expense-tracker-app \
   wget -qO- http://localhost:8081/actuator/health/readiness
 ```
 
-Expected:
+The application uses correlation/request IDs and structured JSON logging in production.
 
-```json
-{
-  "status": "UP"
-}
-```
+## Docker Compose
 
-## Docker
-
-The application and its infrastructure run through Docker Compose.
+The Docker Compose stack contains:
 
 ```text
 Docker Compose
  |
- +-- Spring Boot
+ +-- expense-tracker-app
  |
- +-- PostgreSQL
+ +-- expense-tracker-db
  |
- +-- Redis
+ +-- expense-tracker-redis
 ```
 
 Start the stack:
@@ -339,7 +606,7 @@ Start the stack:
 docker compose up -d --build
 ```
 
-Check containers:
+Check status:
 
 ```bash
 docker compose ps
@@ -357,11 +624,31 @@ Stop the stack:
 docker compose down
 ```
 
-## Environment Variables
+PostgreSQL data is persisted through a Docker volume.
 
-Create a `.env` file for local or server configuration.
+Redis uses AOF persistence through a Docker volume.
 
-Example:
+The application container exposes:
+
+```text
+8080
+```
+
+The management port:
+
+```text
+8081
+```
+
+is used internally by the container health check and is not published by the Compose configuration.
+
+PostgreSQL and Redis ports are also not published to the host by the Compose configuration.
+
+## Configuration
+
+The application uses environment variables for secrets and environment-specific settings.
+
+Important variables include:
 
 ```env
 SPRING_PROFILES_ACTIVE=dev
@@ -376,17 +663,51 @@ REFRESH_TOKEN_EDATE=30
 VERIFICATION_TOKEN_EHR=24
 PASSWORD_RESET_TOKEN_EHR=1
 
-MAIL_USERNAME=your_email
-MAIL_PASSWORD=your_app_password
-APP_CONTACT_EMAIL=your_email
+MAIL_USERNAME=your_gmail_address
+MAIL_PASSWORD=your_gmail_app_password
+APP_CONTACT_EMAIL=your_contact_email
 
-AWS_REGION=your_region
+AWS_REGION=ap-south-1
 AWS_BUCKET_NAME=your_bucket
 
-APP_BASE_URL=http://localhost:8080
+APP_FRONTEND_URL=http://localhost:5173
 ```
 
-Never commit `.env` or credentials to the repository.
+The variable names above match the current Docker Compose/application configuration.
+
+Never commit `.env` files or credentials to source control.
+
+### Token configuration
+
+The application supports configurable lifetimes for:
+
+- Access JWT
+- Refresh tokens
+- Email verification tokens
+- Password reset tokens
+
+### File limits
+
+```text
+Maximum receipt size: 10 MB
+Maximum multipart request size: 10 MB
+```
+
+Supported receipt content types:
+
+```text
+image/jpeg
+image/png
+image/webp
+application/pdf
+```
+
+### Pagination safety
+
+```text
+Default page size: 20
+Maximum page size: 100
+```
 
 ## Local Development
 
@@ -395,76 +716,40 @@ Never commit `.env` or credentials to the repository.
 - Java 21
 - Docker
 - Docker Compose
-- AWS account for S3 functionality
-- SMTP credentials for email functionality
+- PostgreSQL/Redis provided by Docker Compose
+- AWS account and S3 bucket for receipt functionality
+- Gmail account/app password for email functionality
 
-Start the application:
+Start the complete local stack:
 
 ```bash
 docker compose up -d --build
 ```
 
-Check container status:
+Check:
 
 ```bash
 docker compose ps
 ```
 
-Check application readiness:
+Readiness:
 
 ```bash
 docker exec expense-tracker-app \
   wget -qO- http://localhost:8081/actuator/health/readiness
 ```
 
-Once running, explore the API via Swagger UI at `http://localhost:8080/swagger-ui/index.html`.
-
-## AWS Deployment
-
-The application is deployed to an AWS EC2 instance using Docker Compose.
-
-Deployment components:
-
-- Amazon EC2
-- Docker
-- Docker Compose
-- PostgreSQL
-- Redis
-- Amazon S3
-- AWS IAM
-
-### S3 Authentication
-
-The EC2 instance uses an IAM instance role for S3 access:
+Swagger UI:
 
 ```text
-Spring Boot
-    |
-    v
-AWS SDK
-    |
-    v
-EC2 IAM Role
-    |
-    v
-Amazon S3
+http://localhost:8080/swagger-ui/index.html
 ```
 
-AWS access keys do not need to be stored inside the application container.
-
-### Network Exposure
-
-The deployment exposes the application on port `8080`.
-
-The following services are not publicly exposed:
+OpenAPI:
 
 ```text
-5432 - PostgreSQL
-6379 - Redis
-8081 - Actuator
+http://localhost:8080/v3/api-docs
 ```
-
-SSH access is restricted through the EC2 security group.
 
 ## Testing
 
@@ -473,78 +758,107 @@ The project uses:
 - JUnit
 - Mockito
 - MockMvc
+- Spring Security Test
 - Testcontainers
+- PostgreSQL Testcontainer
+- Redis Testcontainer
 
-Testcontainers is used for integration testing with infrastructure such as PostgreSQL and Redis.
+Integration tests use containerized infrastructure instead of requiring a developer's local PostgreSQL/Redis installation.
 
-Run tests:
+Run the test suite:
 
 ```bash
 ./mvnw test
 ```
 
-## CI/CD
+## CI
 
-GitHub Actions is used to build and test the application automatically.
+GitHub Actions is configured to build and test the application automatically.
 
-The CI pipeline verifies that the application builds successfully and that automated tests pass.
+The repository contains:
+
+```text
+.github/workflows/ci.yml
+```
+
+The CI workflow verifies the project through automated builds/tests.
 
 ## Project Structure
 
 ```text
 src/
-└── main/
+├── main/
+│   ├── java/
+│   │   └── com/aditya/expensetracker/expense_tracker/
+│   │       ├── config/
+│   │       ├── controller/
+│   │       ├── dto/
+│   │       ├── entity/
+│   │       ├── event/
+│   │       ├── exception/
+│   │       ├── health/
+│   │       ├── listener/
+│   │       ├── logging/
+│   │       ├── mapper/
+│   │       ├── repository/
+│   │       ├── security/
+│   │       ├── service/
+│   │       ├── specification/
+│   │       └── validation/
+│   └── resources/
+│       ├── db/migration/
+│       ├── templates/
+│       ├── application.properties
+│       ├── application-dev.properties
+│       ├── application-prod.properties
+│       └── logback-spring.xml
+└── test/
     └── java/
         └── com/aditya/expensetracker/expense_tracker/
-            ├── config/
-            ├── controller/
-            ├── dto/
-            ├── entity/
-            ├── event/
-            ├── exception/
-            ├── listener/
-            ├── mapper/
-            ├── repository/
-            ├── security/
-            ├── service/
-            └── specification/
 ```
 
-## Security Considerations
+## Security
 
-The application implements several security measures:
+The application includes:
 
 - BCrypt password hashing
-- JWT authentication
-- Refresh token persistence and revocation
-- Email verification
-- Password reset token expiration
+- JWT access-token authentication
+- Persisted refresh tokens
+- Refresh-token rotation
+- Refresh-token revocation
+- Password-reset token expiration
+- Email-verification token expiration
 - Disabled-user enforcement
-- Rate limiting
+- Request validation
+- Global exception handling
+- Distributed rate limiting
 - Private S3 objects
-- Presigned S3 URLs
-- IAM-based AWS authentication on EC2
-- PostgreSQL and Redis are not publicly exposed
-- Actuator management port is not publicly exposed
-- Secrets are supplied through environment variables
+- Presigned receipt URLs
+- IAM-based S3 authentication
+- PostgreSQL and Redis isolated inside Docker Compose
+- Separate Actuator management port
+- Environment-based secret configuration
+- Correlation/request IDs for tracing requests
 
-## Future Improvements
+## Current Limitations / Future Improvements
 
-Potential future improvements include:
+The current implementation is intentionally a single Spring Boot service. Potential future improvements include:
 
-- Transactional outbox for durable asynchronous events
-- Durable message broker such as RabbitMQ or Amazon SQS
+- Transactional outbox for durable domain events
+- Durable messaging with RabbitMQ, Amazon SQS, or Kafka
 - Retry and dead-letter handling for email delivery
-- HTTPS with a custom domain
-- Reverse proxy or API Gateway
-- Managed PostgreSQL using Amazon RDS
-- Managed Redis using Amazon ElastiCache
-- Centralized logging
-- Infrastructure as Code using Terraform
-- Automated AWS deployment through CI/CD
+- Managed PostgreSQL with Amazon RDS
+- Managed Redis with Amazon ElastiCache
+- Infrastructure as Code with Terraform
+- Fully automated AWS deployment through CI/CD
+- Custom domain and end-to-end HTTPS architecture
+- Centralized log aggregation
+- Horizontal scaling behind a load balancer
 
 ## Author
 
 Aditya Shukla
 
-GitHub: [https://github.com/tiger3768](https://github.com/tiger3768)
+GitHub:
+
+https://github.com/tiger3768
