@@ -17,6 +17,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.aditya.expensetracker.expense_tracker.config.JpaAuditingConfig;
 import com.aditya.expensetracker.expense_tracker.entity.Category;
@@ -26,6 +27,7 @@ import com.aditya.expensetracker.expense_tracker.entity.Role;
 import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.repository.projection.CategorySummaryProjection;
 import com.aditya.expensetracker.expense_tracker.repository.projection.MonthlySummaryProjection;
+import com.aditya.expensetracker.expense_tracker.service.AgentApiTokenService;
 import com.aditya.expensetracker.expense_tracker.support.AbstractIntegrationTest;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -56,6 +58,9 @@ class AnalyticsRepositoryTest extends AbstractIntegrationTest {
 
     @Autowired
     private TestEntityManager entityManager;
+
+    @MockitoBean
+    private AgentApiTokenService tokenService;
 
     private User user;
 

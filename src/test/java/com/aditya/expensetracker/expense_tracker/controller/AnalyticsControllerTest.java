@@ -15,6 +15,7 @@ import com.aditya.expensetracker.expense_tracker.dto.analytics.DashboardCardResp
 import com.aditya.expensetracker.expense_tracker.exception.InvalidAnalyticsRequestException;
 import com.aditya.expensetracker.expense_tracker.security.JwtAuthenticationFilter;
 import com.aditya.expensetracker.expense_tracker.security.RateLimitFilter;
+import com.aditya.expensetracker.expense_tracker.service.AgentApiTokenService;
 import com.aditya.expensetracker.expense_tracker.service.AnalyticsService;
 import com.aditya.expensetracker.expense_tracker.service.CurrentUserService;
 
@@ -44,6 +45,9 @@ class AnalyticsControllerTest {
 
     @MockitoBean
     private RateLimitFilter rateLimitFilter;
+    
+    @MockitoBean
+    private AgentApiTokenService tokenService;
 
     @Test
     void getSummary_authenticated_returns200() throws Exception {

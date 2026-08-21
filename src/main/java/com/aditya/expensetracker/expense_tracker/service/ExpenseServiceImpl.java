@@ -11,6 +11,9 @@ import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.exception.ResourceNotFoundException;
 import com.aditya.expensetracker.expense_tracker.mapper.ExpenseMapper;
 import com.aditya.expensetracker.expense_tracker.repository.ExpenseRepository;
+import com.aditya.expensetracker.expense_tracker.repository.IdempotencyRecordRepository;
+import com.aditya.expensetracker.expense_tracker.entity.IdempotencyRecord;
+import com.aditya.expensetracker.expense_tracker.exception.IdempotencyConflictException;
 import com.aditya.expensetracker.expense_tracker.specification.ExpenseSpecification;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -23,6 +26,11 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 
 import org.springframework.cache.annotation.Caching;
 
@@ -37,6 +45,8 @@ public class ExpenseServiceImpl implements ExpenseService {
     private final CurrentUserService currentUserService;
     private final ExpenseMapper expenseMapper;
     private final FileStorageService fileStorageService;
+    private final IdempotencyRecordRepository idempotencyRecordRepository;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     @Override
@@ -51,8 +61,71 @@ public class ExpenseServiceImpl implements ExpenseService {
     public ExpenseResponse createExpense(
             CreateExpenseRequest request,
             MultipartFile receipt) {
+        return createExpenseInternal(request, receipt, null);
+    }
+
+    @Transactional
+    @Override
+    @Caching(evict = {
+            @CacheEvict(value = "analytics-dashboard", allEntries = true),
+            @CacheEvict(value = "analytics-summary", allEntries = true),
+            @CacheEvict(value = "analytics-categories", allEntries = true),
+            @CacheEvict(value = "analytics-monthly", allEntries = true),
+            @CacheEvict(value = "analytics-trend", allEntries = true),
+            @CacheEvict(value = "analytics-recent", allEntries = true)
+    })
+    public ExpenseResponse createExpense(
+            CreateExpenseRequest request,
+            MultipartFile receipt,
+            String idempotencyKey) {
+
+        if (receipt != null && !receipt.isEmpty()) {
+            throw new IdempotencyConflictException(
+                    "Idempotency-Key is supported for JSON transactions without receipt uploads.");
+        }
+
+        return createExpenseInternal(request, null, idempotencyKey);
+    }
+
+    private ExpenseResponse createExpenseInternal(
+            CreateExpenseRequest request,
+            MultipartFile receipt,
+            String idempotencyKey) {
 
         User currentUser = currentUserService.getCurrentUser();
+
+        IdempotencyRecord idempotencyRecord = null;
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String normalizedKey = idempotencyKey.trim();
+
+            if (normalizedKey.length() > 128) {
+                throw new IdempotencyConflictException(
+                        "Idempotency-Key cannot exceed 128 characters.");
+            }
+
+            String requestHash = hashRequest(request);
+
+            idempotencyRecordRepository.reserve(
+                    currentUser.getId(),
+                    normalizedKey,
+                    requestHash,
+                    java.time.LocalDateTime.now());
+
+            idempotencyRecord = idempotencyRecordRepository
+                    .findByUserAndIdempotencyKey(currentUser, normalizedKey)
+                    .orElseThrow(() ->
+                            new IllegalStateException("Unable to reserve idempotency key."));
+
+            if (!idempotencyRecord.getRequestHash().equals(requestHash)) {
+                throw new IdempotencyConflictException(
+                        "This Idempotency-Key was already used with a different request.");
+            }
+
+            if (idempotencyRecord.getExpenseId() != null) {
+                return getExpense(idempotencyRecord.getExpenseId());
+            }
+        }
 
         Expense expense = expenseMapper.toEntity(request);
 
@@ -65,6 +138,11 @@ public class ExpenseServiceImpl implements ExpenseService {
         }
 
         Expense savedExpense = expenseRepository.save(expense);
+
+        if (idempotencyRecord != null) {
+            idempotencyRecord.setExpenseId(savedExpense.getId());
+            idempotencyRecordRepository.save(idempotencyRecord);
+        }
 
         log.info(
                 "Expense {} created by {}",
@@ -148,7 +226,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Override
     @Cacheable(
             value = "expenses",
-            key = "#id")
+            key = "#id + ':' + @currentUserService.getCurrentUserId()")
     public ExpenseResponse getExpense(Long id) {
 
         User currentUser = currentUserService.getCurrentUser();
@@ -178,12 +256,45 @@ public class ExpenseServiceImpl implements ExpenseService {
             @CacheEvict(value = "analytics-monthly", allEntries = true),
             @CacheEvict(value = "analytics-trend", allEntries = true),
             @CacheEvict(value = "analytics-recent", allEntries = true),
-            @CacheEvict(value = "expenses", key = "#id")
+            @CacheEvict(value = "expenses", key = "#id + ':' + @currentUserService.getCurrentUserId()")
     })
     public ExpenseResponse updateExpense(
             Long id,
             UpdateExpenseRequest request,
             MultipartFile receipt) {
+        return updateExpenseInternal(id, request, receipt, null);
+    }
+
+    @Transactional
+    @Override
+    @Caching(evict = {
+            @CacheEvict(value = "analytics-dashboard", allEntries = true),
+            @CacheEvict(value = "analytics-summary", allEntries = true),
+            @CacheEvict(value = "analytics-categories", allEntries = true),
+            @CacheEvict(value = "analytics-monthly", allEntries = true),
+            @CacheEvict(value = "analytics-trend", allEntries = true),
+            @CacheEvict(value = "analytics-recent", allEntries = true),
+            @CacheEvict(value = "expenses", key = "#id + ':' + @currentUserService.getCurrentUserId()")
+    })
+    public ExpenseResponse updateExpense(
+            Long id,
+            UpdateExpenseRequest request,
+            MultipartFile receipt,
+            String idempotencyKey) {
+
+        if (receipt != null && !receipt.isEmpty()) {
+            throw new IdempotencyConflictException(
+                    "Idempotency-Key is supported for JSON transactions without receipt uploads.");
+        }
+
+        return updateExpenseInternal(id, request, null, idempotencyKey);
+    }
+
+    private ExpenseResponse updateExpenseInternal(
+            Long id,
+            UpdateExpenseRequest request,
+            MultipartFile receipt,
+            String idempotencyKey) {
 
         User currentUser = currentUserService.getCurrentUser();
 
@@ -191,6 +302,38 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .findByIdAndUser(id, currentUser)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
+
+        IdempotencyRecord idempotencyRecord = null;
+
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            String normalizedKey = idempotencyKey.trim();
+
+            if (normalizedKey.length() > 128) {
+                throw new IdempotencyConflictException(
+                        "Idempotency-Key cannot exceed 128 characters.");
+            }
+
+            String requestHash = hashUpdateRequest(id, request);
+            idempotencyRecordRepository.reserve(
+                    currentUser.getId(),
+                    normalizedKey,
+                    requestHash,
+                    java.time.LocalDateTime.now());
+
+            idempotencyRecord = idempotencyRecordRepository
+                    .findByUserAndIdempotencyKey(currentUser, normalizedKey)
+                    .orElseThrow(() ->
+                            new IllegalStateException("Unable to reserve idempotency key."));
+
+            if (!idempotencyRecord.getRequestHash().equals(requestHash)) {
+                throw new IdempotencyConflictException(
+                        "This Idempotency-Key was already used with a different request.");
+            }
+
+            if (idempotencyRecord.getExpenseId() != null) {
+                return getExpense(idempotencyRecord.getExpenseId());
+            }
+        }
 
         if (!request.getVersion().equals(expense.getVersion())) {
 
@@ -217,6 +360,11 @@ public class ExpenseServiceImpl implements ExpenseService {
 
         Expense updatedExpense =
                 expenseRepository.saveAndFlush(expense);
+
+        if (idempotencyRecord != null) {
+            idempotencyRecord.setExpenseId(updatedExpense.getId());
+            idempotencyRecordRepository.save(idempotencyRecord);
+        }
 
         if (receipt != null
                 && !receipt.isEmpty()
@@ -252,7 +400,7 @@ public class ExpenseServiceImpl implements ExpenseService {
     	    @CacheEvict(value = "analytics-monthly", allEntries = true),
     	    @CacheEvict(value = "analytics-trend", allEntries = true),
     	    @CacheEvict(value = "analytics-recent", allEntries = true),
-    	    @CacheEvict(value = "expenses", key = "#id")
+    	    @CacheEvict(value = "expenses", key = "#id + ':' + @currentUserService.getCurrentUserId()")
     })
     public void deleteExpense(Long id) {
 
@@ -270,4 +418,37 @@ public class ExpenseServiceImpl implements ExpenseService {
                 id,
                 currentUser.getEmail());
     }
+    private String hashRequest(CreateExpenseRequest request) {
+        try {
+            byte[] json = objectMapper.writeValueAsBytes(request);
+            byte[] digest = MessageDigest.getInstance("SHA-256").digest(json);
+            StringBuilder hex = new StringBuilder(digest.length * 2);
+            for (byte value : digest) {
+                hex.append(String.format("%02x", value));
+            }
+            return hex.toString();
+        } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(
+                    "Unable to calculate idempotency request hash.", ex);
+        }
+    }
+
+    private String hashUpdateRequest(Long id, UpdateExpenseRequest request) {
+        try {
+            byte[] json = objectMapper.writeValueAsBytes(request);
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(String.valueOf(id).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            digest.update((byte) ':');
+            byte[] hash = digest.digest(json);
+            StringBuilder hex = new StringBuilder(hash.length * 2);
+            for (byte value : hash) {
+                hex.append(String.format("%02x", value));
+            }
+            return hex.toString();
+        } catch (JsonProcessingException | NoSuchAlgorithmException ex) {
+            throw new IllegalStateException(
+                    "Unable to calculate idempotency request hash.", ex);
+        }
+    }
+
 }

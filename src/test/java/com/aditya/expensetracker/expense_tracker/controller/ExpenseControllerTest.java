@@ -20,6 +20,7 @@ import com.aditya.expensetracker.expense_tracker.entity.ExpenseType;
 import com.aditya.expensetracker.expense_tracker.exception.ResourceNotFoundException;
 import com.aditya.expensetracker.expense_tracker.security.JwtAuthenticationFilter;
 import com.aditya.expensetracker.expense_tracker.security.RateLimitFilter;
+import com.aditya.expensetracker.expense_tracker.service.AgentApiTokenService;
 import com.aditya.expensetracker.expense_tracker.service.ExpenseService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -31,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 
@@ -52,6 +54,9 @@ class ExpenseControllerTest {
 
     @MockitoBean
     private RateLimitFilter rateLimitFilter;
+    
+    @MockitoBean
+    private AgentApiTokenService tokenService;
 
     private final ObjectMapper objectMapper =
             new ObjectMapper().registerModule(new JavaTimeModule());
@@ -157,6 +162,67 @@ class ExpenseControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error")
                         .value("Expense not found"));
+    }
+
+    @Test
+    void createTransactionFromJson_valid_returns201() throws Exception {
+
+        ExpenseResponse response = ExpenseResponse.builder()
+                .id(2L)
+                .title("Dinner")
+                .amount(new BigDecimal("850.00"))
+                .type(ExpenseType.EXPENSE)
+                .category(Category.FOOD)
+                .expenseDate(LocalDate.of(2026, 8, 21))
+                .build();
+
+        when(expenseService.createExpense(any(), isNull(), any()))
+                .thenReturn(response);
+
+        mockMvc.perform(
+                post("/api/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .header("Idempotency-Key", "test-create-1")
+                        .content(objectMapper.writeValueAsBytes(validRequest())))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.id").value(2))
+                .andExpect(jsonPath("$.title").value("Dinner"));
+    }
+
+    @Test
+    void createTransactionFromJson_missingFields_returnsStructuredValidationError() throws Exception {
+
+        mockMvc.perform(
+                post("/api/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"amount\":850}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.errors.title").exists())
+                .andExpect(jsonPath("$.fields.title.required").value(true))
+                .andExpect(jsonPath("$.fields.category.required").value(true))
+                .andExpect(jsonPath("$.fields.type.required").value(true))
+                .andExpect(jsonPath("$.fields.expenseDate.required").value(true));
+    }
+
+    @Test
+    void createTransactionFromJson_invalidEnum_returnsAllowedValues() throws Exception {
+
+        mockMvc.perform(
+                post("/api/expenses")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "title": "Dinner",
+                                  "amount": 850,
+                                  "type": "MEAL",
+                                  "category": "FOOD",
+                                  "expenseDate": "2026-08-21"
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.type").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.fields.type.allowedValues").isArray());
     }
 
     @Test

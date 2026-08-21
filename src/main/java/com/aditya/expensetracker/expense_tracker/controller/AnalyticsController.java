@@ -19,11 +19,17 @@ import com.aditya.expensetracker.expense_tracker.service.AnalyticsService;
 import com.aditya.expensetracker.expense_tracker.service.CurrentUserService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
 @RestController
 @RequestMapping("/api/analytics")
+@SecurityRequirements({
+        @SecurityRequirement(name = "Bearer Authentication"),
+        @SecurityRequirement(name = "Agent API Key")
+})
 @RequiredArgsConstructor
 @Validated
 public class AnalyticsController {

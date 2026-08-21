@@ -18,6 +18,7 @@ import com.aditya.expensetracker.expense_tracker.exception.DuplicateEmailExcepti
 import com.aditya.expensetracker.expense_tracker.exception.InvalidCredentialsException;
 import com.aditya.expensetracker.expense_tracker.security.JwtAuthenticationFilter;
 import com.aditya.expensetracker.expense_tracker.security.RateLimitFilter;
+import com.aditya.expensetracker.expense_tracker.service.AgentApiTokenService;
 import com.aditya.expensetracker.expense_tracker.service.AuthService;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -46,6 +47,9 @@ class AuthControllerTest {
     private RateLimitFilter rateLimitFilter;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
+    
+    @MockitoBean
+    private AgentApiTokenService tokenService;
 
     @Test
     void register_valid_returns201() throws Exception {
@@ -142,7 +146,7 @@ class AuthControllerTest {
                         .content(objectMapper.writeValueAsBytes(request))
         )
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.errors.confirmPassword")
+                .andExpect(jsonPath("$.errors.passwordMatching")
                         .value("Passwords do not match"));
     }
 

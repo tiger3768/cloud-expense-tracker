@@ -33,6 +33,9 @@ A production-oriented personal finance REST API built with Spring Boot 3.5 and J
 - Testcontainers
 - MapStruct
 - Lombok
+- Agent API keys
+- Idempotency keys for JSON transaction mutations
+- Machine-readable validation metadata for external agents
 
 ## Features
 
@@ -55,6 +58,31 @@ A production-oriented personal finance REST API built with Spring Boot 3.5 and J
 - Correlation/request ID logging
 
 Recovery-token storage is constrained to one active verification token and one active password-reset token per user through Flyway migration `V13`.
+
+### AI / Agent-Consumable API
+
+The REST API is designed to be consumed by both the human React application and
+external AI agents or automation clients. The backend does **not** contain an AI
+chatbot or conversation engine; it exposes the application's existing business
+capabilities in a machine-friendly way.
+
+- Public agent capability discovery through `GET /api/agent/capabilities`
+- OpenAPI discovery through `/v3/api-docs`
+- User-created, expiring and revocable agent API keys
+- API keys are stored only as SHA-256 hashes
+- `X-API-Key` authentication for external agents
+- JSON representations of transaction create/update operations
+- Structured validation responses containing field metadata
+- Current transaction types and categories exposed through capability discovery
+- Idempotency keys for JSON POST/PUT transaction mutations
+- User-scoped authorization remains enforced for agent requests
+- Optimistic locking remains enforced for JSON updates
+- Existing multipart endpoints remain unchanged for the React UI and receipt uploads
+- Destructive operations remain normal authenticated API operations; the backend
+  does not implement an AI conversation/confirmation workflow
+
+The agent layer is an additional client interface over the same business services.
+It does not duplicate expense, analytics, authorization, or persistence logic.
 
 ### Expense Management
 
@@ -207,6 +235,86 @@ Refresh-token rotation is used when `/api/auth/refresh` is called: the old refre
 
 Password reset uses a token supplied in the reset request. Completing a password reset revokes all refresh tokens belonging to that user.
 
+### Agent Access & Discovery
+
+```text
+GET    /api/agent/capabilities
+POST   /api/agent-tokens
+DELETE /api/agent-tokens/{id}
+```
+
+`GET /api/agent/capabilities` is public and returns non-user-specific metadata
+describing the agent-consumable API contract.
+
+`POST /api/agent-tokens` requires a normal user JWT. The generated `et_...` API key
+is displayed once, stored server-side only as a SHA-256 hash, and can be revoked
+through `DELETE /api/agent-tokens/{id}`.
+
+External agents authenticate with:
+
+```http
+X-API-Key: et_...
+```
+
+Agent API keys are:
+- user-scoped
+- revocable
+- automatically expiring
+- limited to a maximum lifetime of 365 days
+- never stored in plaintext
+
+### JSON Transaction API
+
+The existing multipart endpoints remain available for the React application and
+receipt uploads.
+
+Agents and other integrations can use JSON:
+
+```text
+POST /api/expenses
+PUT  /api/expenses/{id}
+```
+
+with:
+
+```http
+Content-Type: application/json
+X-API-Key: et_...
+Idempotency-Key: <unique-key>
+```
+
+The same business services, validation, authorization, optimistic locking and
+persistence are used as the human-facing API.
+
+A request may intentionally be incomplete. The API returns a structured
+`400 VALIDATION_ERROR` response that preserves the existing `errors` map and adds
+machine-readable `fields` metadata. An external agent can interpret that response,
+ask the human for missing information, and retry with a complete request.
+
+Example:
+
+```json
+{
+  "amount": 850
+}
+```
+
+can result in missing-field information for `title`, `type`, `category`, and
+`expenseDate`.
+
+### Idempotency
+
+JSON transaction `POST` and `PUT` requests support the `Idempotency-Key` header.
+
+- Same user + same key + same request → the original operation result is reused.
+- Same user + same key + different request → HTTP `409 Conflict`.
+- Keys are limited to 128 characters.
+- The key is scoped to the authenticated user.
+- A SHA-256 request hash is persisted with the idempotency record.
+
+This protects agents from creating duplicate transactions when a network failure
+causes a retry.
+
 ### Expenses
 
 ```text
@@ -266,6 +374,8 @@ The OpenAPI configuration exposes a Bearer JWT security scheme for authenticated
 
 ### Authorizing Swagger requests
 
+#### Human / JWT authentication
+
 1. Register an account.
 2. Verify the account email.
 3. Login through `POST /api/auth/login`.
@@ -274,10 +384,32 @@ The OpenAPI configuration exposes a Bearer JWT security scheme for authenticated
 6. Paste the token into the Bearer Authentication field.
 7. Use the authenticated endpoints.
 
+#### Agent API-key authentication
+
+1. Login normally.
+2. Create an agent API key with `POST /api/agent-tokens`.
+3. Copy the `et_...` token immediately; it is shown only once.
+4. In Swagger UI, authorize using the **Agent API Key** security scheme.
+5. Use `X-API-Key` for endpoints that support external-agent authentication.
+
+The public capability endpoint does not require authentication:
+
+```text
+GET /api/agent/capabilities
+```
+
 ## Architecture
 
 ```text
-                         Internet
+                 Internet / AI Clients
+                            |
+                  +---------+---------+
+                  |                   |
+                  v                   v
+              React UI          External Agents
+                  |                   |
+                  | JWT               | X-API-Key
+                  +---------+---------+
                             |
                             v
                     +---------------+
@@ -548,6 +680,8 @@ The migrations cover:
 - Optimistic-lock versioning
 - Soft deletion
 - Single active recovery token constraints
+- Idempotency records for safe JSON transaction retries (`V14`)
+- User-scoped agent API keys (`V15`)
 
 Production schema changes should be introduced through new Flyway migrations rather than relying on Hibernate to modify the production schema.
 
@@ -823,6 +957,8 @@ The application includes:
 
 - BCrypt password hashing
 - JWT access-token authentication
+- User-scoped, expiring, revocable agent API keys (`X-API-Key`)
+- User-scoped expiring/revocable agent API keys
 - Persisted refresh tokens
 - Refresh-token rotation
 - Refresh-token revocation
@@ -854,6 +990,435 @@ The current implementation is intentionally a single Spring Boot service. Potent
 - Custom domain and end-to-end HTTPS architecture
 - Centralized log aggregation
 - Horizontal scaling behind a load balancer
+
+## Author
+
+Aditya Shukla
+
+GitHub:
+
+https://github.com/tiger3768
+
+
+
+## Agent-Consumable API
+
+The application is designed as an **agent-ready REST API** as well as a human-facing
+web application. External AI agents can consume the same business API used by the
+React frontend.
+
+This is **not an MCP server** and the Spring Boot application does not contain an AI
+chatbot or conversation engine. The backend exposes structured capabilities; an
+external AI client decides how to interpret the user's request, ask clarification
+questions, analyze data, or generate reports.
+
+### Agent architecture
+
+```text
+                         Expense Tracker
+                               |
+                 +-------------+-------------+
+                 |                           |
+              React UI                 External AI Agent
+                 |                           |
+              JWT auth                  X-API-Key
+                 |                           |
+                 +-------------+-------------+
+                               |
+                         Spring Boot API
+                               |
+                  +------------+------------+
+                  |            |             |
+              PostgreSQL     Redis           S3
+```
+
+The REST API remains the canonical business interface. Agent requests use the same
+services, repositories, authorization rules, validation and persistence as normal
+requests.
+
+### Capability discovery
+
+Public discovery endpoint:
+
+```text
+GET /api/agent/capabilities
+```
+
+It exposes:
+
+- API version
+- authentication model
+- supported transaction types
+- supported categories
+- available operations
+- validation contract
+- idempotency behavior
+
+It contains no user-specific financial data.
+
+The complete OpenAPI contract is available at:
+
+```text
+/v3/api-docs
+/swagger-ui/index.html
+```
+
+### Agent API keys
+
+A human user creates an agent credential through:
+
+```text
+POST /api/agent-tokens
+Authorization: Bearer <JWT>
+```
+
+Example request:
+
+```json
+{
+  "name": "My AI Assistant",
+  "expirationDays": 30
+}
+```
+
+The API returns an `et_...` token **once**.
+
+The server stores only a SHA-256 hash of the token. The token is:
+
+- user-scoped
+- revocable
+- automatically expiring
+- limited to 1–365 days
+- separate from JWT access and refresh tokens
+
+An external agent uses:
+
+```http
+X-API-Key: et_...
+```
+
+The agent must never receive the user's password, refresh token, database
+credentials, or S3 credentials.
+
+### Agent transaction flow
+
+The intended multi-step interaction is:
+
+```text
+Human:
+"Add an ₹850 expense."
+
+        |
+        v
+
+Agent sends incomplete JSON:
+{
+  "amount": 850
+}
+
+        |
+        v
+
+API returns:
+400 VALIDATION_ERROR
+with missing-field metadata
+
+        |
+        v
+
+Agent asks the human for the missing information
+
+        |
+        v
+
+Agent sends the completed request
+
+        |
+        v
+
+201 Created
+```
+
+For example:
+
+```http
+POST /api/expenses
+Content-Type: application/json
+X-API-Key: et_...
+Idempotency-Key: unique-request-key
+```
+
+```json
+{
+  "title": "Dinner",
+  "amount": 850.00,
+  "type": "EXPENSE",
+  "category": "FOOD",
+  "expenseDate": "2026-08-21"
+}
+```
+
+The backend does not manage the conversation. It only reports structured facts and
+enforces the normal API rules.
+
+### Machine-readable validation
+
+Incomplete or invalid JSON requests return HTTP `400` while preserving the
+existing `errors` map used by the React application and adding structured metadata
+for agents.
+
+Conceptually:
+
+```json
+{
+  "status": 400,
+  "type": "VALIDATION_ERROR",
+  "message": "Request contains missing or invalid fields.",
+  "errors": {
+    "title": "Title is required",
+    "type": "Expense type is required",
+    "category": "Category is required",
+    "expenseDate": "Expense date is required"
+  },
+  "fields": {
+    "title": {
+      "message": "Title is required",
+      "required": true
+    },
+    "type": {
+      "message": "Expense type is required",
+      "required": true,
+      "allowedValues": ["INCOME", "EXPENSE"]
+    }
+  }
+}
+```
+
+This lets an external agent determine what information is missing without requiring
+a separate AI-specific workflow API.
+
+### JSON versus multipart requests
+
+The React application can continue using:
+
+```text
+POST /api/expenses
+PUT  /api/expenses/{id}
+Content-Type: multipart/form-data
+```
+
+for normal human interaction and receipt uploads.
+
+External agents can use:
+
+```text
+POST /api/expenses
+PUT  /api/expenses/{id}
+Content-Type: application/json
+```
+
+for transaction operations that do not include receipt files.
+
+These are two representations of the same business operations; they do not create
+duplicate business logic.
+
+### Idempotency
+
+Agents may retry a request when a network failure leaves them unsure whether the
+operation succeeded.
+
+For JSON transaction creation and update, send:
+
+```http
+Idempotency-Key: <unique-key>
+```
+
+The key:
+
+- is scoped to the authenticated user
+- can contain up to 128 characters
+- is associated with a SHA-256 hash of the request
+- prevents duplicate processing when the same request is retried
+
+Behavior:
+
+```text
+Same user + same key + same request
+        -> original result is reused
+
+Same user + same key + different request
+        -> 409 Conflict
+```
+
+The corresponding database migration is:
+
+```text
+V14__Create_idempotency_records.sql
+```
+
+The current repository does **not** contain an idempotency cleanup script. The
+idempotency records can instead be maintained through the EC2 operational cleanup
+process used for this deployment.
+
+### Optimistic locking
+
+JSON updates still require the current expense `version`.
+
+```text
+Agent reads version 3
+        |
+        v
+PUT with version 3
+        |
+        v
+Success -> version 4
+```
+
+A stale version results in the existing optimistic-lock conflict behavior.
+
+Idempotency and optimistic locking solve different problems:
+
+- **Idempotency** protects against duplicate retries.
+- **Optimistic locking** protects against stale concurrent updates.
+
+### Reads and analytics
+
+Agents can consume the existing authenticated endpoints:
+
+```text
+GET /api/expenses
+GET /api/expenses/{id}
+
+GET /api/analytics/dashboard
+GET /api/analytics/summary
+GET /api/analytics/categories
+GET /api/analytics/monthly
+GET /api/analytics/trend
+GET /api/analytics/recent
+```
+
+This enables external agents to perform higher-level tasks such as:
+
+- summarize spending
+- compare months
+- analyze category trends
+- identify unusual transactions
+- explain spending patterns
+- prepare a financial report
+
+The backend supplies the financial data; the external AI performs the reasoning and
+presentation.
+
+### Destructive operations
+
+`DELETE /api/expenses/{id}` remains a normal authenticated, user-scoped operation.
+
+The backend enforces authentication and authorization, but **does not implement a
+mandatory AI confirmation protocol**.
+
+The capability metadata recommends that external agents obtain human confirmation
+before destructive actions. An AI client may choose how to handle confirmation based
+on the user's instruction and its own safety policy.
+
+This means:
+
+```text
+Backend:
+"Is this request authenticated and authorized?"
+
+AI client:
+"Should I ask the human for confirmation?"
+
+React:
+"Can continue using its normal confirmation UI."
+```
+
+If a future version requires backend-enforced confirmation, that would be a separate
+security feature rather than part of the current agent API.
+
+### Human compatibility
+
+No React migration is required for the agent-consumability layer.
+
+The human application continues to use:
+
+- JWT authentication
+- existing multipart expense create/update
+- receipt uploads
+- existing CRUD operations
+- existing analytics APIs
+- existing validation responses
+
+The new JSON endpoints, agent API keys, capability discovery and idempotency support
+are additive.
+
+### Example: AI financial analysis
+
+Because the agent can authenticate and read the existing transaction and analytics
+endpoints, an external AI can perform workflows such as:
+
+```text
+"Analyze my spending for the last six months."
+
+        |
+        v
+
+GET /api/expenses
+GET /api/analytics/categories
+GET /api/analytics/monthly
+GET /api/analytics/trend
+
+        |
+        v
+
+AI analyzes the returned data
+
+        |
+        v
+
+Natural-language explanation / report
+```
+
+The AI can also generate an external artifact such as a DOCX report if the AI
+environment has document-generation capabilities. No DOCX generation service is
+required inside the Expense Tracker backend.
+
+### Security boundary
+
+An agent API key is a credential for a user, not a privileged system credential.
+
+The following remain enforced:
+
+- authentication
+- per-user authorization
+- validation
+- rate limiting
+- optimistic locking
+- S3 access controls
+- existing Spring Security rules
+
+Agent API keys do not grant access to another user's data.
+
+## Current Limitations / Future Improvements
+
+The current implementation is intentionally a single Spring Boot service. Potential
+future improvements include:
+
+- Backend-enforced confirmation tokens for destructive agent operations
+- Transactional outbox for durable domain events
+- Durable messaging with RabbitMQ, Amazon SQS, or Kafka
+- Retry and dead-letter handling for email delivery
+- Managed PostgreSQL with Amazon RDS
+- Managed Redis with Amazon ElastiCache
+- Infrastructure as Code with Terraform
+- Fully automated AWS deployment through CI/CD
+- Custom domain and end-to-end HTTPS architecture
+- Centralized log aggregation
+- Horizontal scaling behind a load balancer
+- Optional MCP adapter if a native MCP integration becomes useful
+
+The current agent layer deliberately does **not** implement an AI chatbot, LLM
+integration, conversation state, or MCP server.
 
 ## Author
 

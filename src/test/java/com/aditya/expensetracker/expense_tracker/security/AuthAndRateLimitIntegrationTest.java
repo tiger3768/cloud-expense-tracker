@@ -14,11 +14,13 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import com.aditya.expensetracker.expense_tracker.dto.LoginRequest;
 import com.aditya.expensetracker.expense_tracker.entity.Role;
 import com.aditya.expensetracker.expense_tracker.entity.User;
 import com.aditya.expensetracker.expense_tracker.repository.UserRepository;
+import com.aditya.expensetracker.expense_tracker.service.AgentApiTokenService;
 import com.aditya.expensetracker.expense_tracker.service.JwtService;
 import com.aditya.expensetracker.expense_tracker.support.AbstractIntegrationTest;
 
@@ -39,6 +41,9 @@ class AuthAndRateLimitIntegrationTest extends AbstractIntegrationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+    
+    @MockitoBean
+    private AgentApiTokenService tokenService;
 
     @Test
     void protectedEndpoint_withoutToken_returns401() {

@@ -14,6 +14,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import java.util.List;
 
 import org.springframework.web.cors.CorsConfiguration;
@@ -21,11 +22,13 @@ import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 @Configuration
+@EnableMethodSecurity
 @RequiredArgsConstructor
 
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AgentApiKeyAuthenticationFilter agentApiKeyAuthenticationFilter;
 
     private final RateLimitFilter rateLimitFilter;
 
@@ -108,6 +111,7 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 "/api/auth/**",
+                                "/api/agent/capabilities",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**",
                                 "/actuator/health/**"
@@ -116,19 +120,29 @@ public class SecurityConfig {
                         .anyRequest().authenticated()
                 )
 
+                // All custom filters are anchored to a filter whose order is
+                // already registered by Spring Security, or to a custom filter
+                // that has already been registered. Using one custom filter class
+                // as the anchor before it has been registered causes:
+                // "Filter ... does not have a registered order".
                 .addFilterBefore(
-                        jwtAuthenticationFilter,
+                        correlationIdFilter,
                         UsernamePasswordAuthenticationFilter.class
                 )
 
-                .addFilterBefore(
+                .addFilterAfter(
                         rateLimitFilter,
-                        JwtAuthenticationFilter.class
+                        CorrelationIdFilter.class
                 )
 
-                .addFilterBefore(
-                        correlationIdFilter,
+                .addFilterAfter(
+                        agentApiKeyAuthenticationFilter,
                         RateLimitFilter.class
+                )
+
+                .addFilterAfter(
+                        jwtAuthenticationFilter,
+                        AgentApiKeyAuthenticationFilter.class
                 );
 
         return http.build();

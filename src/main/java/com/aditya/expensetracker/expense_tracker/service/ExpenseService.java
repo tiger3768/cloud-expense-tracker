@@ -15,6 +15,11 @@ public interface ExpenseService {
             CreateExpenseRequest request,
             MultipartFile receipt);
 
+    ExpenseResponse createExpense(
+            CreateExpenseRequest request,
+            MultipartFile receipt,
+            String idempotencyKey);
+
     PagedResponse<ExpenseResponse> getMyExpenses(
             ExpenseFilterRequest filter,
             Pageable pageable
@@ -26,6 +31,12 @@ public interface ExpenseService {
             Long id,
             UpdateExpenseRequest request,
             MultipartFile receipt);
+
+    ExpenseResponse updateExpense(
+            Long id,
+            UpdateExpenseRequest request,
+            MultipartFile receipt,
+            String idempotencyKey);
 
     void deleteExpense(Long id);
 }
