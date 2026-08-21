@@ -47,6 +47,7 @@ services:
     container_name: expense-tracker-app
 
     environment:
+      TZ: Asia/Kolkata
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE}
 
       DB_URL: jdbc:postgresql://postgres:5432/expense_tracker
