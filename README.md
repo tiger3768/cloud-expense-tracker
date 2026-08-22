@@ -991,16 +991,6 @@ The current implementation is intentionally a single Spring Boot service. Potent
 - Centralized log aggregation
 - Horizontal scaling behind a load balancer
 
-## Author
-
-Aditya Shukla
-
-GitHub:
-
-https://github.com/tiger3768
-
-
-
 ## Agent-Consumable API
 
 The application is designed as an **agent-ready REST API** as well as a human-facing

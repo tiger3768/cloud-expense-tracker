@@ -35,6 +35,7 @@ import java.security.NoSuchAlgorithmException;
 import org.springframework.cache.annotation.Caching;
 
 import java.util.List;
+import java.time.LocalDateTime;
 
 @Slf4j
 @Service
@@ -411,6 +412,10 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
 
+        // @SoftDelete changes the deleted flag instead of physically deleting the row.
+        // Keep the timestamp separately so scheduled retention cleanup can identify
+        // rows that have been soft-deleted for more than the retention period.
+        expense.setDeletedAt(LocalDateTime.now());
         expenseRepository.delete(expense);
 
         log.info(

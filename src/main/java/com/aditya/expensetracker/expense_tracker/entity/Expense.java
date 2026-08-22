@@ -13,6 +13,7 @@ import org.hibernate.annotations.SoftDelete;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "expenses")
@@ -58,6 +59,9 @@ public class Expense extends BaseAuditableEntity {
     private LocalDate expenseDate;
 
     private String receiptKey;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", nullable = false)
