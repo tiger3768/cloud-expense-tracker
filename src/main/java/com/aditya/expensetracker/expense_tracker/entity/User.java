@@ -66,6 +66,7 @@ public class User implements UserDetails{
     private boolean enabled;
     
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
+    @Builder.Default
     private List<Expense> expenses = new ArrayList<>();
     
     @Override

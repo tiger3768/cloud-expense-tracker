@@ -24,6 +24,10 @@ public interface ExpenseMapper {
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "receiptKey", ignore = true)
     @Mapping(target = "version", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     Expense toEntity(CreateExpenseRequest request);
 
     @Mapping(target = "id", ignore = true)
@@ -31,6 +35,10 @@ public interface ExpenseMapper {
     @Mapping(target = "user", ignore = true)
     @Mapping(target = "receiptKey", ignore = true)
     @Mapping(target = "version", ignore = true)
+    @Mapping(target = "createdBy", ignore = true)
+    @Mapping(target = "updatedAt", ignore = true)
+    @Mapping(target = "updatedBy", ignore = true)
+    @Mapping(target = "deletedAt", ignore = true)
     void updateExpenseFromRequest(
             UpdateExpenseRequest request,
             @MappingTarget Expense expense);
