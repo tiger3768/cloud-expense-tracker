@@ -9,4 +9,5 @@ public interface RefreshTokenService {
     RefreshToken validateRefreshToken(String token);
     void revokeRefreshToken(RefreshToken token);
     void revokeAllRefreshTokens(User user);
+    RefreshToken consumeRefreshToken(String token);
 }

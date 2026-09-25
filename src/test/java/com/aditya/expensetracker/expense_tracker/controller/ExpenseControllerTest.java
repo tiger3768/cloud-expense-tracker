@@ -96,7 +96,7 @@ class ExpenseControllerTest {
                 .expenseDate(LocalDate.of(2026, 8, 1))
                 .build();
 
-        when(expenseService.createExpense(any(), isNull()))
+        when(expenseService.createExpense(any(), isNull(), isNull()))
                 .thenReturn(response);
 
         mockMvc.perform(

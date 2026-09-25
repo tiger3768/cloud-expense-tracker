@@ -13,11 +13,7 @@ public interface ExpenseService {
 
     ExpenseResponse createExpense(
             CreateExpenseRequest request,
-            MultipartFile receipt);
-
-    ExpenseResponse createExpense(
-            CreateExpenseRequest request,
-            MultipartFile receipt,
+            MultipartFile receipt, 
             String idempotencyKey);
 
     PagedResponse<ExpenseResponse> getMyExpenses(
@@ -26,11 +22,6 @@ public interface ExpenseService {
     );
 
     ExpenseResponse getExpense(Long id);
-
-    ExpenseResponse updateExpense(
-            Long id,
-            UpdateExpenseRequest request,
-            MultipartFile receipt);
 
     ExpenseResponse updateExpense(
             Long id,

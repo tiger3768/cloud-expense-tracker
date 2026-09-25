@@ -11,7 +11,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.aditya.expensetracker.expense_tracker.dto.AuthResponse;
+import com.aditya.expensetracker.expense_tracker.dto.AuthTokens;
 import com.aditya.expensetracker.expense_tracker.dto.LoginRequest;
 import com.aditya.expensetracker.expense_tracker.dto.RegisterRequest;
 import com.aditya.expensetracker.expense_tracker.exception.DuplicateEmailException;
@@ -25,6 +25,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -39,17 +40,17 @@ class AuthControllerTest {
 
     @MockitoBean
     private AuthService authService;
-    
+
     @MockitoBean
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @MockitoBean
     private RateLimitFilter rateLimitFilter;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    
     @MockitoBean
     private AgentApiTokenService tokenService;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Test
     void register_valid_returns201() throws Exception {
@@ -90,17 +91,18 @@ class AuthControllerTest {
     }
 
     @Test
-    void login_validCredentials_returns200WithTokens() throws Exception {
+    void login_validCredentials_returns200WithAccessTokenAndRefreshCookie() throws Exception {
 
         LoginRequest request = new LoginRequest();
         request.setEmail("user@example.com");
         request.setPassword("correct-password");
 
         when(authService.login(any())).thenReturn(
-                AuthResponse.builder()
-                        .accessToken("access-token")
-                        .refreshToken("refresh-token")
-                        .build());
+                new AuthTokens(
+                        "access-token",
+                        "refresh-token"
+                )
+        );
 
         mockMvc.perform(
                 post("/api/auth/login")
@@ -109,7 +111,9 @@ class AuthControllerTest {
         )
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.accessToken").value("access-token"))
-                .andExpect(jsonPath("$.refreshToken").value("refresh-token"));
+                .andExpect(jsonPath("$.refreshToken").doesNotExist())
+                .andExpect(cookie().value("refresh_token", "refresh-token"))
+                .andExpect(cookie().httpOnly("refresh_token", true));
     }
 
     @Test
@@ -149,5 +153,4 @@ class AuthControllerTest {
                 .andExpect(jsonPath("$.errors.passwordMatching")
                         .value("Passwords do not match"));
     }
-
 }

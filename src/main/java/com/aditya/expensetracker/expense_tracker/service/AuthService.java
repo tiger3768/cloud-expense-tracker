@@ -6,10 +6,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.aditya.expensetracker.expense_tracker.dto.AuthResponse;
+import com.aditya.expensetracker.expense_tracker.dto.AuthTokens;
 import com.aditya.expensetracker.expense_tracker.dto.ForgotPasswordRequest;
 import com.aditya.expensetracker.expense_tracker.dto.LoginRequest;
-import com.aditya.expensetracker.expense_tracker.dto.RefreshTokenRequest;
 import com.aditya.expensetracker.expense_tracker.dto.RegisterRequest;
 import com.aditya.expensetracker.expense_tracker.dto.ResetPasswordRequest;
 import com.aditya.expensetracker.expense_tracker.entity.EmailVerificationToken;
@@ -89,7 +88,7 @@ public class AuthService {
                 .deleteVerificationToken(verificationToken);
     }
 
-    public AuthResponse login(LoginRequest request) {
+    public AuthTokens login(LoginRequest request) {
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> {
@@ -119,33 +118,26 @@ public class AuthService {
 
         log.info("User logged in: {}", user.getEmail());
 
-        return AuthResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken.getToken())
-                .build();
+        return new AuthTokens(accessToken, refreshToken.getToken());
     }
     
-    public AuthResponse refresh(RefreshTokenRequest request) {
+    @Transactional
+    public AuthTokens refresh(String refreshToken) {
 
-    	RefreshToken oldToken =
-    	        refreshTokenService.validateRefreshToken(
-    	                request.getRefreshToken());
+        RefreshToken oldToken =
+                refreshTokenService.consumeRefreshToken(refreshToken);
 
-    	User user = oldToken.getUser();
+        User user = oldToken.getUser();
 
-    	refreshTokenService.revokeRefreshToken(oldToken);
+        RefreshToken newRefreshToken =
+                refreshTokenService.createRefreshToken(user);
 
-    	RefreshToken newRefreshToken =
-    	        refreshTokenService.createRefreshToken(user);
+        String accessToken =
+                jwtService.generateToken(user);
 
-    	String accessToken =
-    	        jwtService.generateToken(user);
-
-    	return AuthResponse.builder()
-    	        .accessToken(accessToken)
-    	        .refreshToken(newRefreshToken.getToken())
-    	        .build();
+        return new AuthTokens(accessToken, newRefreshToken.getToken());
     }
+    
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
 
@@ -219,11 +211,10 @@ public class AuthService {
         log.info("Password reset completed for {}", user.getEmail());
     }
     
-    public void logout(RefreshTokenRequest request) {
+    public void logout(String refreshTokenValue) {
 
         RefreshToken refreshToken =
-                refreshTokenService.validateRefreshToken(
-                        request.getRefreshToken());
+                refreshTokenService.validateRefreshToken(refreshTokenValue);
 
         refreshTokenService.revokeRefreshToken(refreshToken);
 

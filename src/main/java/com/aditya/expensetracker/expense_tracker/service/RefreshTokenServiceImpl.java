@@ -69,6 +69,53 @@ public class RefreshTokenServiceImpl implements RefreshTokenService {
     }
     
     @Override
+    public RefreshToken consumeRefreshToken(String token) {
+
+        RefreshToken refreshToken = refreshTokenRepository
+                .findByToken(token)
+                .orElseThrow(() -> {
+
+                    log.warn(
+                            "Refresh attempted with unknown token"
+                    );
+
+                    return new InvalidRefreshTokenException(
+                            "Invalid refresh token"
+                    );
+                });
+
+        if (refreshToken.getExpiresAt()
+                .isBefore(LocalDateTime.now())) {
+
+            log.warn(
+                    "Refresh attempted with expired token for {}",
+                    refreshToken.getUser().getEmail()
+            );
+
+            throw new InvalidRefreshTokenException(
+                    "Refresh token has expired"
+            );
+        }
+
+        int updatedRows =
+                refreshTokenRepository.revokeIfActive(token);
+
+        if (updatedRows == 0) {
+
+            log.warn(
+                    "Concurrent or repeated refresh attempt for {}",
+                    refreshToken.getUser().getEmail()
+            );
+
+            throw new InvalidRefreshTokenException(
+                    "Refresh token has already been used"
+            );
+        }
+
+        return refreshToken;
+    }
+    
+    @Override
     public void revokeRefreshToken(RefreshToken refreshToken) {
 
         refreshToken.setRevoked(true);

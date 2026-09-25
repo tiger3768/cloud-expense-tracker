@@ -44,7 +44,7 @@ public class ExpenseController {
             @Valid @RequestPart("expense") CreateExpenseRequest request,
             @RequestPart(value = "receipt", required = false) MultipartFile receipt) {
 
-        return expenseService.createExpense(request, receipt);
+        return expenseService.createExpense(request, receipt, null);
     }
 
     @Operation(
@@ -90,7 +90,7 @@ public class ExpenseController {
             @Valid @RequestPart("expense") UpdateExpenseRequest request,
             @RequestPart(value = "receipt", required = false) MultipartFile receipt) {
 
-        return expenseService.updateExpense(id, request, receipt);
+        return expenseService.updateExpense(id, request, receipt, null);
     }
 
     @Operation(

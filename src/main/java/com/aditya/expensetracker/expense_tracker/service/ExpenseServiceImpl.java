@@ -52,22 +52,6 @@ public class ExpenseServiceImpl implements ExpenseService {
     @Transactional
     @Override
     @Caching(evict = {
-    	    @CacheEvict(value = "analytics-dashboard", allEntries = true),
-    	    @CacheEvict(value = "analytics-summary", allEntries = true),
-    	    @CacheEvict(value = "analytics-categories", allEntries = true),
-    	    @CacheEvict(value = "analytics-monthly", allEntries = true),
-    	    @CacheEvict(value = "analytics-trend", allEntries = true),
-    	    @CacheEvict(value = "analytics-recent", allEntries = true)
-    	})
-    public ExpenseResponse createExpense(
-            CreateExpenseRequest request,
-            MultipartFile receipt) {
-        return createExpenseInternal(request, receipt, null);
-    }
-
-    @Transactional
-    @Override
-    @Caching(evict = {
             @CacheEvict(value = "analytics-dashboard", allEntries = true),
             @CacheEvict(value = "analytics-summary", allEntries = true),
             @CacheEvict(value = "analytics-categories", allEntries = true),
@@ -80,12 +64,7 @@ public class ExpenseServiceImpl implements ExpenseService {
             MultipartFile receipt,
             String idempotencyKey) {
 
-        if (receipt != null && !receipt.isEmpty()) {
-            throw new IdempotencyConflictException(
-                    "Idempotency-Key is supported for JSON transactions without receipt uploads.");
-        }
-
-        return createExpenseInternal(request, null, idempotencyKey);
+        return createExpenseInternal(request, receipt, idempotencyKey);
     }
 
     private ExpenseResponse createExpenseInternal(
@@ -262,34 +241,11 @@ public class ExpenseServiceImpl implements ExpenseService {
     public ExpenseResponse updateExpense(
             Long id,
             UpdateExpenseRequest request,
-            MultipartFile receipt) {
-        return updateExpenseInternal(id, request, receipt, null);
-    }
-
-    @Transactional
-    @Override
-    @Caching(evict = {
-            @CacheEvict(value = "analytics-dashboard", allEntries = true),
-            @CacheEvict(value = "analytics-summary", allEntries = true),
-            @CacheEvict(value = "analytics-categories", allEntries = true),
-            @CacheEvict(value = "analytics-monthly", allEntries = true),
-            @CacheEvict(value = "analytics-trend", allEntries = true),
-            @CacheEvict(value = "analytics-recent", allEntries = true),
-            @CacheEvict(value = "expenses", key = "#id + ':' + @currentUserService.getCurrentUserId()")
-    })
-    public ExpenseResponse updateExpense(
-            Long id,
-            UpdateExpenseRequest request,
             MultipartFile receipt,
-            String idempotencyKey) {
-
-        if (receipt != null && !receipt.isEmpty()) {
-            throw new IdempotencyConflictException(
-                    "Idempotency-Key is supported for JSON transactions without receipt uploads.");
-        }
-
-        return updateExpenseInternal(id, request, null, idempotencyKey);
+    		String idempotencyKey) {
+        return updateExpenseInternal(id, request, receipt, idempotencyKey);
     }
+
 
     private ExpenseResponse updateExpenseInternal(
             Long id,
@@ -412,9 +368,6 @@ public class ExpenseServiceImpl implements ExpenseService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Expense not found"));
 
-        // @SoftDelete changes the deleted flag instead of physically deleting the row.
-        // Keep the timestamp separately so scheduled retention cleanup can identify
-        // rows that have been soft-deleted for more than the retention period.
         expense.setDeletedAt(LocalDateTime.now());
         expenseRepository.delete(expense);
 

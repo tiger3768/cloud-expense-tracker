@@ -52,6 +52,44 @@ public class AnalyticsServiceImpl implements AnalyticsService {
     @Autowired
     @Lazy
     private AnalyticsService self;
+    
+    @Override
+    @Cacheable(
+            value = "analytics-dashboard",
+            key = "#userId + ':' + (#request == null ? 'default' : #request)"
+    )
+    public AnalyticsDashboardResponse getDashboard(
+            Long userId,
+            AnalyticsFilterRequest request
+    ) {
+
+        validateRequest(request);
+
+        log.debug("Building dashboard for user {} with filter {}", userId, request);
+
+        DashboardCardResponse summary =
+                self.getSummary(userId, request);
+
+        List<CategorySummaryResponse> categories =
+                self.getCategorySummary(userId, request);
+
+        List<MonthlySummaryResponse> monthlySummary =
+                self.getMonthlySummary(userId, request);
+
+        SpendingTrendResponse trend =
+                self.getTrend(userId, request);
+
+        List<RecentExpenseResponse> recentExpenses =
+                self.getRecentExpenses(userId, request);
+
+        return new AnalyticsDashboardResponse(
+                summary,
+                categories,
+                monthlySummary,
+                trend,
+                recentExpenses
+        );
+    }
 
     @Override
     @Cacheable(
@@ -335,43 +373,6 @@ public class AnalyticsServiceImpl implements AnalyticsService {
                 );
     }
 
-    @Override
-    @Cacheable(
-            value = "analytics-dashboard",
-            key = "#userId + ':' + (#request == null ? 'default' : #request)"
-    )
-    public AnalyticsDashboardResponse getDashboard(
-            Long userId,
-            AnalyticsFilterRequest request
-    ) {
-
-        validateRequest(request);
-
-        log.debug("Building dashboard for user {} with filter {}", userId, request);
-
-        DashboardCardResponse summary =
-                self.getSummary(userId, request);
-
-        List<CategorySummaryResponse> categories =
-                self.getCategorySummary(userId, request);
-
-        List<MonthlySummaryResponse> monthlySummary =
-                self.getMonthlySummary(userId, request);
-
-        SpendingTrendResponse trend =
-                self.getTrend(userId, request);
-
-        List<RecentExpenseResponse> recentExpenses =
-                self.getRecentExpenses(userId, request);
-
-        return new AnalyticsDashboardResponse(
-                summary,
-                categories,
-                monthlySummary,
-                trend,
-                recentExpenses
-        );
-    }
     private void validateRequest(
             AnalyticsFilterRequest request
     ) {
